@@ -20,7 +20,7 @@ with the ATEM library. If not, see http://www.gnu.org/licenses/.
 
 
 /**
-  Version 1 beta
+  Version 1.0.0
 **/
 
 
@@ -35,7 +35,7 @@ with the ATEM library. If not, see http://www.gnu.org/licenses/.
 
 
 #include <EthernetUdp.h>
-
+#include <avr/pgmspace.h>
 
 class ATEM
 {
@@ -51,11 +51,13 @@ class ATEM
 
 	uint16_t _localPacketIdCounter;  	// This is our counter for the command packages we might like to send to ATEM
 	boolean _hasInitialized;  			// If true, the initial reception of the ATEM memory has passed and we can begin to respond during the runLoop()
-	uint8_t _answer[36]; 				// Little buffer for creating answers back to the ATEM
+	uint8_t _answer[84]; 				// Little buffer for creating answers back to the ATEM	<- 36-84 TEMP!
+	unsigned long _lastContact;			// Last time (millis) the switcher sent a packet to us.
 
 		// Selected ATEM State values. Naming attempts to match the switchers own protocol names
 		// Set through _parsePacket() when the switcher sends state information
 		// Accessed through getter methods
+	uint8_t _ATEM_VidM;		// Video format used: 525i59.94 NTSC (0), 625i50 PAL (1), 720p50 (2), 720p59.94 (3), 1080i50 (4), 1080i59.94 (5)
 	uint8_t _ATEM_PrgI;		// Program input
 	uint8_t _ATEM_PrvI;		// Preview input
 	uint8_t _ATEM_TlIn[8];	// Inputs 1-8, bit 0 = Prg tally, bit 1 = Prv tally. Both can be set simultaneously.
@@ -68,21 +70,32 @@ class ATEM
 	uint8_t _ATEM_TrPs_frameCount;	// Count down of frames in case of a transition (manual or auto)
 	uint16_t _ATEM_TrPs_position;	// Position from 0-1000 of the current transition in progress
 	uint8_t _ATEM_FtbS_frameCount;	// Count down of frames in case of fade-to-black
+	uint8_t	_ATEM_FtbP_time;		// Transition time for Fade-to-black
+	uint8_t	_ATEM_TMxP_time;		// Transition time for Mix Transitions
 	uint8_t _ATEM_AuxS[3];	// Aux Outputs 1-3 source
 	uint8_t _ATEM_MPType[2];	// Media Player 1/2: Type (1=Clip, 2=Still)
 	uint8_t _ATEM_MPStill[2];	// Still number (if MPType==2)
 	uint8_t _ATEM_MPClip[2];	// Clip number (if MPType==1)
+
 	
 	
   public:
+	char _ATEM_pin[17];		// String holding the id of the mixer, for instance "ATEM 1 M/E Produ"
+	uint8_t	_ATEM_ver_m;	// Firmware version, "left of decimal point" (what is that called anyway?)
+	uint8_t	_ATEM_ver_l;	// Firmware version, decimals ("right of decimal point")
+
+    ATEM();
     ATEM(IPAddress ip, uint16_t localPort);
+    void begin(IPAddress ip, uint16_t localPort);
     void connect();
     void runLoop();
+	bool isConnectionTimedOut();
+	void delay(unsigned int delayTimeMillis);
 
   private:
 	void _parsePacket(uint16_t packetLength);
 	void _sendAnswerPacket(uint16_t remotePacketID);
-	void _sendCommandPacket(char cmd[4], uint8_t commandBytes[16], uint8_t cmdBytes);
+	void _sendCommandPacket(const char cmd[4], uint8_t commandBytes[16], uint8_t cmdBytes);
 
 
   public:
@@ -103,6 +116,20 @@ class ATEM
 	uint8_t getPreviewInput();
 	boolean getProgramTally(uint8_t inputNumber);
 	boolean getPreviewTally(uint8_t inputNumber);
+	boolean getUpstreamKeyerStatus(uint8_t inputNumber);
+	boolean getUpstreamKeyerOnNextTransitionStatus(uint8_t inputNumber);
+	boolean getDownstreamKeyerStatus(uint8_t inputNumber);
+	uint16_t getTransitionPosition();
+	bool getTransitionPreview();
+	uint8_t getTransitionType();
+	uint8_t getTransitionMixTime();
+	uint8_t getFadeToBlackTime();
+	bool getDownstreamKeyTie(uint8_t keyer);
+	uint8_t getAuxState(uint8_t auxOutput);
+	uint8_t getMediaPlayerType(uint8_t mediaPlayer);
+	uint8_t getMediaPlayerStill(uint8_t mediaPlayer);
+	uint8_t getMediaPlayerClip(uint8_t mediaPlayer);
+
 
 /********************************
  * ATEM Switcher Change methods
@@ -117,6 +144,8 @@ class ATEM
 	void changeTransitionPositionDone();
 	void changeTransitionPreview(bool state);
 	void changeTransitionType(uint8_t type);
+	void changeTransitionMixTime(uint8_t frames);
+	void changeFadeToBlackTime(uint8_t frames);
 	void changeUpstreamKeyOn(uint8_t keyer, bool state);
 	void changeUpstreamKeyNextTransition(uint8_t keyer, bool state);
 	void changeDownstreamKeyOn(uint8_t keyer, bool state);
@@ -127,6 +156,11 @@ class ATEM
 	void settingsMemoryClear();
 	void changeColorValue(uint8_t colorGenerator, uint16_t hue, uint16_t saturation, uint16_t lightness);
 	void mediaPlayerSelectSource(uint8_t mediaPlayer, boolean movieclip, uint8_t sourceIndex);
+
+	void changeSwitcherVideoFormat(uint8_t format);
+
+
+	void changeDVESettingsTemp(unsigned long Xpos,unsigned long Ypos,unsigned long Xsize,unsigned long Ysize);
 };
 
 #endif

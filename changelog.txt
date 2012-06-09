@@ -11,4 +11,8 @@
 	* Cleaned up code more, comments in code
 	* Implemented support for a LOT more ATEM features, basically everything in the main screen of the software. This has all been made available through relevant getter and setter methods. You will have to look in the API to see what's new there.
 	* More examples, including T-bar example, C50 and C100 example, GPI/Tally example.
-	
+
+9/6 Changes: (By Kasper Skårhøj)
+	* Uses the same buffer to RX and TX now. 
+	* Worked on better understanding the buffer situation of the Ethernet shield: Conclusion is that we in no way can get more than the first large packet from the switcher with information. So we must live with that basically. But now - with Arduino 1.0.1 - I don't see any problems with packet size mismatch and command size mismatch, that is very good!
+	* Supports ONLY Arduino >1.0.1 now (Fixed UDP implementation)

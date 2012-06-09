@@ -5,6 +5,9 @@
  * is a general purpose GPIO board but with connectors and curcuitry compatible with
  * Blackmagic-Designs own GPI/Tally box.
  *
+ * This example also uses a number of custom libraries which you must install first. 
+ * Search for "#include" in this file to find the libraries. Then download the libraries from http://skaarhoj.com/wiki/index.php/Libraries_for_Arduino
+ *
  * By default the example will reflect the Program tally state on the 8 camera inputs
  * The GPI inputs will set the corresponding input as Program
  * If you call the functions setTallyPreviewProgramOutputs() and checkGPI_setVarious() instead (see code)

@@ -20,7 +20,7 @@ with the ATEM library. If not, see http://www.gnu.org/licenses/.
 
 
 /**
-  Version 1.0.0
+  Version 1.0.2
 **/
 
 

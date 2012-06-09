@@ -16,3 +16,6 @@
 	* Uses the same buffer to RX and TX now. 
 	* Worked on better understanding the buffer situation of the Ethernet shield: Conclusion is that we in no way can get more than the first large packet from the switcher with information. So we must live with that basically. But now - with Arduino 1.0.1 - I don't see any problems with packet size mismatch and command size mismatch, that is very good!
 	* Supports ONLY Arduino >1.0.1 now (Fixed UDP implementation)
+	
+9/6 Version 1.0.2 (By Kasper Skårhøj)
+	* Modified some of the examples

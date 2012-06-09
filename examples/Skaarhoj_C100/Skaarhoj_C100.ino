@@ -1,6 +1,11 @@
 /*****************
- * Basis control for the SKAARHOJ 1UCTRL100 models
- * Works with Ethernet enabled arduino devices (Arduino Ethernet or a model with Ethernet shield)
+ * Basis control for the SKAARHOJ C100 models
+ * This example is programmed for ATEM 1M/E versions
+ *
+ * This example also uses a number of custom libraries which you must install first. 
+ * Search for "#include" in this file to find the libraries. Then download the libraries from http://skaarhoj.com/wiki/index.php/Libraries_for_Arduino
+ *
+ * Works with Ethernet enabled arduino devices (Arduino Mega with Ethernet shield preferred)
  * Make sure to configure IP and addresses! Look for "<= SETUP" in the code below!
  * 
  * - kasper
@@ -280,7 +285,7 @@ void setup() {
   LCD.begin(9600);
   clearLCD();
   lcdPosition(0,0);
-  LCD.print("    SKAARHOJ     1UCTRL100SDXL");
+  LCD.print("    SKAARHOJ          C100     ");
   backlightOn();
   
   
@@ -290,7 +295,6 @@ void setup() {
     // Set up the SkaarhojBI8 boards:
   inputSelect.begin(0,false);
   cmdSelect.begin(1,false);
-  cmdSelect.usingB1alt();
   
   inputSelect.setDefaultColor(0);  // Off by default
   cmdSelect.setDefaultColor(0);  // Off by default
@@ -552,13 +556,13 @@ void menuValues_printTrType(int sVal)  {
 void setButtonColors()  {
     // Setting colors of input select buttons:
     for (uint8_t i=1;i<=8;i++)  {
-//      uint8_t idx = i>4 ? i-4 : i+4;  // Mirroring because of buttons on PCB
+      uint8_t idx = i>4 ? i-4 : i+4;  // Mirroring because of buttons on PCB
       if (AtemSwitcher.getProgramTally(i))  {
-        inputSelect.setButtonColor(i, 2);
+        inputSelect.setButtonColor(idx, 2);
       } else if (AtemSwitcher.getPreviewTally(i))  {
-        inputSelect.setButtonColor(i, 3);
+        inputSelect.setButtonColor(idx, 3);
       } else {
-        inputSelect.setButtonColor(i, 5);   
+        inputSelect.setButtonColor(idx, 5);   
       }
     }
     
@@ -566,31 +570,31 @@ void setButtonColors()  {
     switch(userButtonMode)  {
        case 1:
           // Setting colors of the command buttons:
-          cmdSelect.setButtonColor(3, AtemSwitcher.getDownstreamKeyerStatus(1) ? 4 : 5);    // DSK1 button
-          cmdSelect.setButtonColor(4, AtemSwitcher.getDownstreamKeyerStatus(2) ? 4 : 5);    // DSK2 button
-          cmdSelect.setButtonColor(7, AtemSwitcher.getTransitionPosition()>0 ? 4 : 5);     // Auto button
-          cmdSelect.setButtonColor(8, AtemSwitcher.getUpstreamKeyerStatus(1) ? 4 : 5);     // PIP button
+          cmdSelect.setButtonColor(7, AtemSwitcher.getDownstreamKeyerStatus(1) ? 4 : 5);    // DSK1 button
+          cmdSelect.setButtonColor(8, AtemSwitcher.getDownstreamKeyerStatus(2) ? 4 : 5);    // DSK2 button
+          cmdSelect.setButtonColor(3, AtemSwitcher.getTransitionPosition()>0 ? 4 : 5);     // Auto button
+          cmdSelect.setButtonColor(4, AtemSwitcher.getUpstreamKeyerStatus(1) ? 4 : 5);     // PIP button
       break; 
        case 2:
           // Setting colors of the command buttons:
-          cmdSelect.setButtonColor(3, AtemSwitcher.getUpstreamKeyerStatus(1) ? 4 : 5);     // Key1
-          cmdSelect.setButtonColor(4, AtemSwitcher.getUpstreamKeyerStatus(2) ? 4 : 5);     // Key2
-          cmdSelect.setButtonColor(7, AtemSwitcher.getUpstreamKeyerStatus(3) ? 4 : 5);     // Key3
-          cmdSelect.setButtonColor(8, AtemSwitcher.getUpstreamKeyerStatus(4) ? 4 : 5);     // Key4
+          cmdSelect.setButtonColor(7, AtemSwitcher.getUpstreamKeyerStatus(1) ? 4 : 5);     // Key1
+          cmdSelect.setButtonColor(8, AtemSwitcher.getUpstreamKeyerStatus(2) ? 4 : 5);     // Key2
+          cmdSelect.setButtonColor(3, AtemSwitcher.getUpstreamKeyerStatus(3) ? 4 : 5);     // Key3
+          cmdSelect.setButtonColor(4, AtemSwitcher.getUpstreamKeyerStatus(4) ? 4 : 5);     // Key4
       break; 
        case 3:
           // Setting colors of the command buttons:
-          cmdSelect.setButtonColor(3, AtemSwitcher.getProgramInput()==10 ? 2 : (AtemSwitcher.getPreviewInput()==10 ? 3 : 5));     // Color1
-          cmdSelect.setButtonColor(4, AtemSwitcher.getProgramInput()==11 ? 2 : (AtemSwitcher.getPreviewInput()==11 ? 3 : 5));     // Color2
-          cmdSelect.setButtonColor(7, AtemSwitcher.getProgramInput()==0 ? 2 : (AtemSwitcher.getPreviewInput()==0 ? 3 : 5));     // Black
-          cmdSelect.setButtonColor(8, AtemSwitcher.getProgramInput()==9 ? 2 : (AtemSwitcher.getPreviewInput()==9 ? 3 : 5));     // Bars
+          cmdSelect.setButtonColor(7, AtemSwitcher.getProgramInput()==10 ? 2 : (AtemSwitcher.getPreviewInput()==10 ? 3 : 5));     // Color1
+          cmdSelect.setButtonColor(8, AtemSwitcher.getProgramInput()==11 ? 2 : (AtemSwitcher.getPreviewInput()==11 ? 3 : 5));     // Color2
+          cmdSelect.setButtonColor(3, AtemSwitcher.getProgramInput()==0 ? 2 : (AtemSwitcher.getPreviewInput()==0 ? 3 : 5));     // Black
+          cmdSelect.setButtonColor(4, AtemSwitcher.getProgramInput()==9 ? 2 : (AtemSwitcher.getPreviewInput()==9 ? 3 : 5));     // Bars
       break; 
       default:
           // Setting colors of the command buttons:
-          cmdSelect.setButtonColor(3, AtemSwitcher.getDownstreamKeyerStatus(1) ? 4 : 5);    // DSK1 button
-          cmdSelect.setButtonColor(4, preVGA_active ? 4 : 5);     // VGA+PIP button
-          cmdSelect.setButtonColor(7, AtemSwitcher.getTransitionPosition()>0 ? 4 : 5);     // Auto button
-          cmdSelect.setButtonColor(8, AtemSwitcher.getUpstreamKeyerStatus(1) ? 4 : 5);     // PIP button
+          cmdSelect.setButtonColor(7, AtemSwitcher.getDownstreamKeyerStatus(1) ? 4 : 5);    // DSK1 button
+          cmdSelect.setButtonColor(8, preVGA_active ? 4 : 5);     // VGA+PIP button
+          cmdSelect.setButtonColor(3, AtemSwitcher.getTransitionPosition()>0 ? 4 : 5);     // Auto button
+          cmdSelect.setButtonColor(4, AtemSwitcher.getUpstreamKeyerStatus(1) ? 4 : 5);     // PIP button
       break;
     }
 
@@ -604,14 +608,14 @@ void readingButtonsAndSendingCommands() {
 
   // Sending commands for input selection:
     uint8_t busSelection = inputSelect.buttonDownAll();
-    if (inputSelect.isButtonIn(1, busSelection))  { AtemSwitcher.changePreviewInput(1); }
-    if (inputSelect.isButtonIn(2, busSelection))   { AtemSwitcher.changePreviewInput(2); }
-    if (inputSelect.isButtonIn(3, busSelection))   { AtemSwitcher.changePreviewInput(3); }
-    if (inputSelect.isButtonIn(4, busSelection))  { AtemSwitcher.changePreviewInput(4); }
-    if (inputSelect.isButtonIn(5, busSelection))  { AtemSwitcher.changePreviewInput(5); }
-    if (inputSelect.isButtonIn(6, busSelection))   { AtemSwitcher.changePreviewInput(6); }
-    if (inputSelect.isButtonIn(7, busSelection))  { AtemSwitcher.changePreviewInput(7); }
-    if (inputSelect.isButtonIn(8, busSelection))  { AtemSwitcher.changePreviewInput(8); }
+    if (inputSelect.isButtonIn(1, busSelection))  { AtemSwitcher.changePreviewInput(5); }
+    if (inputSelect.isButtonIn(2, busSelection))   { AtemSwitcher.changePreviewInput(6); }
+    if (inputSelect.isButtonIn(3, busSelection))   { AtemSwitcher.changePreviewInput(7); }
+    if (inputSelect.isButtonIn(4, busSelection))  { AtemSwitcher.changePreviewInput(8); }
+    if (inputSelect.isButtonIn(5, busSelection))  { AtemSwitcher.changePreviewInput(1); }
+    if (inputSelect.isButtonIn(6, busSelection))   { AtemSwitcher.changePreviewInput(2); }
+    if (inputSelect.isButtonIn(7, busSelection))  { AtemSwitcher.changePreviewInput(3); }
+    if (inputSelect.isButtonIn(8, busSelection))  { AtemSwitcher.changePreviewInput(4); }
   
   
       // "T-bar" slider:
@@ -639,28 +643,28 @@ void readingButtonsAndSendingCommands() {
 
     switch(userButtonMode)  {
        case 1:
-          if (cmdSelection & (B1 << 2))  { AtemSwitcher.changeDownstreamKeyOn(1, !AtemSwitcher.getDownstreamKeyerStatus(1)); }  // DSK1
-          if (cmdSelection & (B1 << 3))  { AtemSwitcher.changeDownstreamKeyOn(2, !AtemSwitcher.getDownstreamKeyerStatus(2)); }  // DSK1
-          if (cmdSelection & (B1 << 6))  { AtemSwitcher.doAuto(); preVGA_active = false;}
-          if (cmdSelection & (B1 << 7))  { cmd_pipToggle(); }  // PIP
+          if (cmdSelection & (B1 << 6))  { AtemSwitcher.changeDownstreamKeyOn(1, !AtemSwitcher.getDownstreamKeyerStatus(1)); }  // DSK1
+          if (cmdSelection & (B1 << 7))  { AtemSwitcher.changeDownstreamKeyOn(2, !AtemSwitcher.getDownstreamKeyerStatus(2)); }  // DSK1
+          if (cmdSelection & (B1 << 2))  { AtemSwitcher.doAuto(); preVGA_active = false;}
+          if (cmdSelection & (B1 << 3))  { cmd_pipToggle(); }  // PIP
        break;
        case 2:
-          if (cmdSelection & (B1 << 2))  { AtemSwitcher.changeUpstreamKeyOn(1, !AtemSwitcher.getUpstreamKeyerStatus(1)); }  // Key1
-          if (cmdSelection & (B1 << 3))  { AtemSwitcher.changeUpstreamKeyOn(2, !AtemSwitcher.getUpstreamKeyerStatus(2)); }  // Key2
-          if (cmdSelection & (B1 << 6))  { AtemSwitcher.changeUpstreamKeyOn(3, !AtemSwitcher.getUpstreamKeyerStatus(3)); }  // Key3
-          if (cmdSelection & (B1 << 7))  { AtemSwitcher.changeUpstreamKeyOn(4, !AtemSwitcher.getUpstreamKeyerStatus(4)); }  // Key4
+          if (cmdSelection & (B1 << 6))  { AtemSwitcher.changeUpstreamKeyOn(1, !AtemSwitcher.getUpstreamKeyerStatus(1)); }  // Key1
+          if (cmdSelection & (B1 << 7))  { AtemSwitcher.changeUpstreamKeyOn(2, !AtemSwitcher.getUpstreamKeyerStatus(2)); }  // Key2
+          if (cmdSelection & (B1 << 2))  { AtemSwitcher.changeUpstreamKeyOn(3, !AtemSwitcher.getUpstreamKeyerStatus(3)); }  // Key3
+          if (cmdSelection & (B1 << 3))  { AtemSwitcher.changeUpstreamKeyOn(4, !AtemSwitcher.getUpstreamKeyerStatus(4)); }  // Key4
        break;
        case 3:
-          if (cmdSelection & (B1 << 2))  { AtemSwitcher.changePreviewInput(10); }  // Color1
-          if (cmdSelection & (B1 << 3))  { AtemSwitcher.changePreviewInput(11); }  // Color2  
-          if (cmdSelection & (B1 << 6))  { AtemSwitcher.changePreviewInput(0); }   // Black
-          if (cmdSelection & (B1 << 7))  { AtemSwitcher.changePreviewInput(9); }  // Bars
+          if (cmdSelection & (B1 << 6))  { AtemSwitcher.changePreviewInput(10); }  // Color1
+          if (cmdSelection & (B1 << 7))  { AtemSwitcher.changePreviewInput(11); }  // Color2  
+          if (cmdSelection & (B1 << 2))  { AtemSwitcher.changePreviewInput(0); }   // Black
+          if (cmdSelection & (B1 << 3))  { AtemSwitcher.changePreviewInput(9); }  // Bars
        break;
        default:
-          if (cmdSelection & (B1 << 2))  { AtemSwitcher.changeDownstreamKeyOn(1, !AtemSwitcher.getDownstreamKeyerStatus(1)); }  // DSK1
-          if (cmdSelection & (B1 << 3))  { cmd_vgaToggle(); }    
-          if (cmdSelection & (B1 << 6))  { AtemSwitcher.doAuto(); preVGA_active = false;}
-          if (cmdSelection & (B1 << 7))  { cmd_pipToggle(); }  // PIP
+          if (cmdSelection & (B1 << 6))  { AtemSwitcher.changeDownstreamKeyOn(1, !AtemSwitcher.getDownstreamKeyerStatus(1)); }  // DSK1
+          if (cmdSelection & (B1 << 7))  { cmd_vgaToggle(); }    
+          if (cmdSelection & (B1 << 2))  { AtemSwitcher.doAuto(); preVGA_active = false;}
+          if (cmdSelection & (B1 << 3))  { cmd_pipToggle(); }  // PIP
        break;
     }
 }
@@ -735,4 +739,3 @@ void cmd_pipToggle()  {
       Serial.println("DONE!");
      }  
 }
-

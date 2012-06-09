@@ -3,6 +3,9 @@
  * Works with Ethernet enabled arduino devices (Arduino Ethernet or a model with Ethernet shield)
  * Make sure to configure IP and addresses! Look for "<= SETUP" in the code below!
  *
+ * This example also uses SkaarhojUtils library. 
+ * Download it from http://skaarhoj.com/wiki/index.php/Libraries_for_Arduino
+ *
  * Connect the outer pins of a 10K potentiometer to GND and 5V. Connect the middle pin to A0. Connect also a 10nF capacitor between GND and middle pin (stabilizes the analog readout)
  * See also http://skaarhoj.com/wiki/index.php/SKAARHOJ_Slider_board
  * 

@@ -1,5 +1,10 @@
 /*****************
- * Basis control for the SKAARHOJ 1UCTRL50 model
+ * Basis control for the SKAARHOJ C100 models
+ * This example is programmed for ATEM 1M/E versions
+ *
+ * This example also uses a number of custom libraries which you must install first. 
+ * Search for "#include" in this file to find the libraries. Then download the libraries from http://skaarhoj.com/wiki/index.php/Libraries_for_Arduino
+ *
  * Works with Ethernet enabled arduino devices (Arduino Ethernet or a model with Ethernet shield)
  * Make sure to configure IP and addresses! Look for "<= SETUP" in the code below!
  * 
@@ -220,4 +225,3 @@ void loop() {
     }
   }
 }
-

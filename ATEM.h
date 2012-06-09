@@ -124,6 +124,7 @@ class ATEM
 	bool getTransitionPreview();
 	uint8_t getTransitionType();
 	uint8_t getTransitionMixTime();
+    boolean getFadeToBlackState();
 	uint8_t getFadeToBlackTime();
 	bool getDownstreamKeyTie(uint8_t keyer);
 	uint8_t getAuxState(uint8_t auxOutput);

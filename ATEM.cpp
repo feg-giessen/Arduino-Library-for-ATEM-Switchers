@@ -269,6 +269,11 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
           } else
           if(strcmp(cmdStr, "TlIn") == 0) {  // Tally status for inputs 1-8
             uint8_t count = _packetBuffer[-2+8+1]; // Number of inputs
+              
+            if(count > 8) // Currently is only 8 inputs supported so make sure to read max 8.
+            {
+              count = 8;
+            }
 
             // Inputs 1-8, bit 0 = Prg tally, bit 1 = Prv tally. Both can be set simultaneously.
             for(uint8_t i = 0; i < count; ++i)
@@ -299,7 +304,7 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
             if (_serialOutput) Serial.println(_ATEM_TrSS_TransitionStyle, DEC);
           } else
 	      if(strcmp(cmdStr, "FtbS") == 0) {  // Fade To Black State
-			_ATEM_FtbS_state = _packetBuffer[-2+8+1];
+			_ATEM_FtbS_state = _packetBuffer[-2+8+1]; // State of Fade To Black, 0 = off and 1 = activated
 			_ATEM_FtbS_frameCount = _packetBuffer[-2+8+2];	// Frames count down
           } else
 	      if(strcmp(cmdStr, "FtbP") == 0) {  // Fade To Black - Positions(?) (Transition Time in frames for FTB): 0x01-0xFA
@@ -575,6 +580,9 @@ uint8_t ATEM::getTransitionType()	{
 }
 uint8_t ATEM::getTransitionMixTime() {
 	return _ATEM_TMxP_time;		// Transition time for Mix Transitions
+}
+boolean ATEM::getFadeToBlackState() {
+	return _ATEM_FtbS_state;    // Active state of Fade-to-black
 }
 uint8_t ATEM::getFadeToBlackTime() {
 	return _ATEM_FtbP_time;		// Transition time for Fade-to-black

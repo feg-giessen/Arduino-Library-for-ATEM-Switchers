@@ -143,6 +143,8 @@ void ATEM::runLoop() {
   // If there's data available, read a packet
   uint16_t packetSize = _Udp.parsePacket();
   if (_Udp.available() && packetSize !=0)   {  
+	//	Serial.print(("PACKET: "));
+	//    Serial.println(packetSize, DEC);
 
     // Read packet header of 12 bytes:
     _Udp.read(_packetBuffer, 12);
@@ -152,12 +154,14 @@ void ATEM::runLoop() {
     _lastRemotePacketID = word(_packetBuffer[10],_packetBuffer[11]);
     uint8_t command = _packetBuffer[0] & B11111000;
     boolean command_ACK = command & B00001000 ? true : false;	// If true, ATEM expects an acknowledgement answer back!
+    boolean command_INIT = command & B00010000 ? true : false;	// If true, ATEM expects an acknowledgement answer back!
 		// The five bits in "command" (from LSB to MSB):
 		// 1 = ACK, "Please respond to this packet" (using the _lastRemotePacketID). Exception: The initial 10-20 kbytes of Switcher status
 		// 2 = ?. Set during initialization? (first hand-shake packets contains that)
 		// 3 = "This is a retransmission". You will see this bit set if the ATEM switcher did not get a timely response to a packet.
 		// 4 = ? ("hello packet" according to "ratte", forum at atemuser.com)
 		// 5 = "This is a response on your request". So set this when answering...
+
 
     if (packetSize==packetLength) {  // Just to make sure these are equal, they should be!
 	  _lastContact = millis();
@@ -170,7 +174,7 @@ void ATEM::runLoop() {
 		if (_serialOutput) Serial.println(("_hasInitialized=TRUE"));
       } 
 	
-		if (packetLength > 12)	{
+		if (packetLength > 12 && !command_INIT)	{	// !command_INIT is because there seems to be no commands in these packets and that will generate an error.
 			_parsePacket(packetLength);
 		}
 
@@ -181,7 +185,8 @@ void ATEM::runLoop() {
 		// Apparently the initial "chaos" of keeping up with the incoming data confuses 
 		// the UDP library so that we might never get initialized - and thus never get connected
 		// So... for now this is how we do it:
-      if (command_ACK) {
+		// CHANGED with arduino 1.0.1..... put back in.
+      if (_hasInitialized && command_ACK) {
         if (_serialOutput) {
 			Serial.print(("ACK, rpID: "));
         	Serial.println(_lastRemotePacketID, DEC);
@@ -192,11 +197,11 @@ void ATEM::runLoop() {
 
     } else {
 		if (_serialOutput) 	{
-      		Serial.print(("ERROR: Packet size mismatch: "));
+  /*    		Serial.print(("ERROR: Packet size mismatch: "));
 		    Serial.print(packetSize, DEC);
 		    Serial.print(" != ");
 		    Serial.println(packetLength, DEC);
-		}
+	*/	}
 		// Flushing the buffer:
 		// TODO: Other way? _Udp.flush() ??
           while(_Udp.available()) {
@@ -366,7 +371,8 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 		    } else 
 			if(strcmp(cmdStr, "VidM") == 0) {  // Video format (SD, HD, framerate etc.)
 				_ATEM_VidM = _packetBuffer[-2+8+0];	
-		    } else 
+		    } else {
+			
 		
 		
 			// SHOULD ONLY THE UNCOMMENTED for development and with a high Baud rate on serial - 115200 for instance. Otherwise it will not connect due to serial writing speeds.
@@ -382,13 +388,18 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 				}
 				if (_serialOutput) Serial.println("");
 	        */
-
+			}
+	      
           indexPointer+=cmdLength;
         } else { 
           // Error, just get out of the loop ASAP:
-          if (_serialOutput) Serial.print(("ERROR: Command Size mismatch: "));
+/*          if (_serialOutput) Serial.print(("ERROR: Command Size mismatch: "));
           if (_serialOutput) Serial.println(cmdLength, DEC);
-          indexPointer = 2000;
+          if (_serialOutput) Serial.print((" - - Index Pointer: "));
+          if (_serialOutput) Serial.println(indexPointer, DEC);
+          if (_serialOutput) Serial.print((" - - Packet Length: "));
+          if (_serialOutput) Serial.println(packetLength, DEC);
+  */       indexPointer = 2000;
           
 			// Flushing the buffer:
 			// TODO: Other way? _Udp.flush() ??
@@ -405,23 +416,23 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 void ATEM::_sendAnswerPacket(uint16_t remotePacketID)  {
 
   //Answer packet:
-  memset(_answer, 0, 12);			// Using 12 bytes of answer buffer, setting to zeros.
-  _answer[2] = 0x80;  // ??? API
-  _answer[3] = _sessionID;  // Session ID
-  _answer[4] = remotePacketID/256;  // Remote Packet ID, MSB
-  _answer[5] = remotePacketID%256;  // Remote Packet ID, LSB
-  _answer[9] = 0x41;  // ??? API
+  memset(_packetBuffer, 0, 12);			// Using 12 bytes of answer buffer, setting to zeros.
+  _packetBuffer[2] = 0x80;  // ??? API
+  _packetBuffer[3] = _sessionID;  // Session ID
+  _packetBuffer[4] = remotePacketID/256;  // Remote Packet ID, MSB
+  _packetBuffer[5] = remotePacketID%256;  // Remote Packet ID, LSB
+  _packetBuffer[9] = 0x41;  // ??? API
   // The rest is zeros.
 
   // Create header:
   uint16_t returnPacketLength = 10+2;
-  _answer[0] = returnPacketLength/256;
-  _answer[1] = returnPacketLength%256;
-  _answer[0] |= B10000000;
+  _packetBuffer[0] = returnPacketLength/256;
+  _packetBuffer[1] = returnPacketLength%256;
+  _packetBuffer[0] |= B10000000;
 
   // Send connectAnswerString to ATEM:
   _Udp.beginPacket(_switcherIP,  9910);
-  _Udp.write(_answer,returnPacketLength);
+  _Udp.write(_packetBuffer,returnPacketLength);
   _Udp.endPacket();  
 }
 
@@ -430,40 +441,40 @@ void ATEM::_sendAnswerPacket(uint16_t remotePacketID)  {
  */
 void ATEM::_sendCommandPacket(const char cmd[4], uint8_t commandBytes[64], uint8_t cmdBytes)  {	// TEMP: 16->64
 
-  if (cmdBytes <= 64)	{	// Currently, only a lenght up to 16 - can be extended, but then the _answer buffer must be prolonged as well (to more than 36)	<- TEMP 16->64
+  if (cmdBytes <= 64)	{	// Currently, only a lenght up to 16 - can be extended, but then the _packetBuffer buffer must be prolonged as well (to more than 36)	<- TEMP 16->64
 	  //Answer packet preparations:
-	  memset(_answer, 0, 84);	// <- TEMP 36->84
-	  _answer[2] = 0x80;  // ??? API
-	  _answer[3] = _sessionID;  // Session ID
-	  _answer[10] = _localPacketIdCounter/256;  // Remote Packet ID, MSB
-	  _answer[11] = _localPacketIdCounter%256;  // Remote Packet ID, LSB
+	  memset(_packetBuffer, 0, 84);	// <- TEMP 36->84
+	  _packetBuffer[2] = 0x80;  // ??? API
+	  _packetBuffer[3] = _sessionID;  // Session ID
+	  _packetBuffer[10] = _localPacketIdCounter/256;  // Remote Packet ID, MSB
+	  _packetBuffer[11] = _localPacketIdCounter%256;  // Remote Packet ID, LSB
 
 	  // The rest is zeros.
 
 	  // Command identifier (4 bytes, after header (12 bytes) and local segment length (4 bytes)):
 	  int i;
 	  for (i=0; i<4; i++)  {
-	    _answer[12+4+i] = cmd[i];
+	    _packetBuffer[12+4+i] = cmd[i];
 	  }
 
   		// Command value (after command):
 	  for (i=0; i<cmdBytes; i++)  {
-	    _answer[12+4+4+i] = commandBytes[i];
+	    _packetBuffer[12+4+4+i] = commandBytes[i];
 	  }
 
 	  // Command length:
-	  _answer[12] = (4+4+cmdBytes)/256;
-	  _answer[12+1] = (4+4+cmdBytes)%256;
+	  _packetBuffer[12] = (4+4+cmdBytes)/256;
+	  _packetBuffer[12+1] = (4+4+cmdBytes)%256;
 
 	  // Create header:
 	  uint16_t returnPacketLength = 10+2+(4+4+cmdBytes);
-	  _answer[0] = returnPacketLength/256;
-	  _answer[1] = returnPacketLength%256;
-	  _answer[0] |= B00001000;
+	  _packetBuffer[0] = returnPacketLength/256;
+	  _packetBuffer[1] = returnPacketLength%256;
+	  _packetBuffer[0] |= B00001000;
 
 	  // Send connectAnswerString to ATEM:
 	  _Udp.beginPacket(_switcherIP,  9910);
-	  _Udp.write(_answer,returnPacketLength);
+	  _Udp.write(_packetBuffer,returnPacketLength);
 	  _Udp.endPacket();  
 
 	  _localPacketIdCounter++;

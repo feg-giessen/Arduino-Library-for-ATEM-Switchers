@@ -47,7 +47,7 @@ class ATEM
 
 	uint8_t _sessionID;					// Used internally for storing packet size during communication
 	uint16_t _lastRemotePacketID;		// The most recent Remote Packet Id from switcher
-	char _packetBuffer[96];   			// Buffer for storing segments of the packets from ATEM. Has the size of the largest known "segment" of a packet the ATEM sends.
+	uint8_t _packetBuffer[96];   			// Buffer for storing segments of the packets from ATEM. Has the size of the largest known "segment" of a packet the ATEM sends.
 
 	uint16_t _localPacketIdCounter;  	// This is our counter for the command packages we might like to send to ATEM
 	boolean _hasInitialized;  			// If true, the initial reception of the ATEM memory has passed and we can begin to respond during the runLoop()

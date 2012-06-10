@@ -69,6 +69,7 @@ class ATEM
 	boolean _ATEM_DskTie[2];	// Downstream Keyer Tie 1-2 On state
 	uint8_t _ATEM_TrPs_frameCount;	// Count down of frames in case of a transition (manual or auto)
 	uint16_t _ATEM_TrPs_position;	// Position from 0-1000 of the current transition in progress
+	boolean _ATEM_FtbS_state;       // State of Fade To Black, 0 = off and 1 = activated
 	uint8_t _ATEM_FtbS_frameCount;	// Count down of frames in case of fade-to-black
 	uint8_t	_ATEM_FtbP_time;		// Transition time for Fade-to-black
 	uint8_t	_ATEM_TMxP_time;		// Transition time for Mix Transitions
@@ -123,6 +124,7 @@ class ATEM
 	bool getTransitionPreview();
 	uint8_t getTransitionType();
 	uint8_t getTransitionMixTime();
+    boolean getFadeToBlackState();
 	uint8_t getFadeToBlackTime();
 	bool getDownstreamKeyTie(uint8_t keyer);
 	uint8_t getAuxState(uint8_t auxOutput);

@@ -158,11 +158,15 @@ class ATEM
 	void settingsMemoryClear();
 	void changeColorValue(uint8_t colorGenerator, uint16_t hue, uint16_t saturation, uint16_t lightness);
 	void mediaPlayerSelectSource(uint8_t mediaPlayer, boolean movieclip, uint8_t sourceIndex);
+	void mediaPlayerClipStart(uint8_t mediaPlayer);
 
 	void changeSwitcherVideoFormat(uint8_t format);
-
-
 	void changeDVESettingsTemp(unsigned long Xpos,unsigned long Ypos,unsigned long Xsize,unsigned long Ysize);
+	
+	void changeUpstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber);
+	void changeDownstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber);
+	void changeDVESettingsTemp_RunKeyFrame(uint8_t runType);
+	void changeDVESettingsTemp_Rate(uint8_t rateFrames);
 };
 
 #endif

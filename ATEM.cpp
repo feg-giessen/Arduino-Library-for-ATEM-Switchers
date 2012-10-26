@@ -784,6 +784,14 @@ void ATEM::mediaPlayerSelectSource(uint8_t mediaPlayer, boolean movieclip, uint8
 	}
 }
 
+void ATEM::mediaPlayerClipStart(uint8_t mediaPlayer)  {
+	if (mediaPlayer>=1 && mediaPlayer<=2)	{
+		uint8_t commandBytes2[8] = {0x01, mediaPlayer-1, 0x01, 0xbf, 0x21, 0xa9, 0x94, 0xfa}; // 3rd byte is "start", remaining 5 bytes seems random...
+		_sendCommandPacket("SCPS", commandBytes2, 8);
+	}
+}
+
+
 void ATEM::changeSwitcherVideoFormat(uint8_t format)	{
 	// Changing the video format it uses: 525i59.94 NTSC (0), 625i50 PAL (1), 720p50 (2), 720p59.94 (3), 1080i50 (4), 1080i59.94 (5)
 	if (format>=0 && format<=5)	{	// Todo: Should match available aux outputs
@@ -798,3 +806,37 @@ void ATEM::changeDVESettingsTemp(unsigned long Xpos,unsigned long Ypos,unsigned 
   		uint8_t commandBytes[64] = {0x00, 0x00, 0x00, B1111, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, highByte(Xsize), lowByte(Xsize), 0x00, 0x00, highByte(Ysize), lowByte(Ysize), (Xpos >>24) & 0xFF, (Xpos >>16) & 0xFF, (Xpos >>8) & 0xFF, (Xpos >>0) & 0xFF, (Ypos >>24) & 0xFF, (Ypos >>16) & 0xFF, (Ypos >>8) & 0xFF, (Ypos >>0) & 0xFF, 0xbf, 0xff, 0xdb, 0x7f, 0xc2, 0xa2, 0x09, 0x90, 0xdb, 0x7e, 0xbf, 0xff, 0x82, 0x34, 0x2e, 0x0b, 0x05, 0x00, 0x00, 0x00, 0x34, 0xc1, 0x00, 0x2c, 0xe2, 0x00, 0x4e, 0x02, 0xa3, 0x98, 0xac, 0x02, 0xdb, 0xd9, 0xbf, 0xff, 0x74, 0x34, 0xe9, 0x01};
   		_sendCommandPacket("CKDV", commandBytes, 64);
 }
+
+
+void ATEM::changeDVESettingsTemp_Rate(uint8_t rateFrames)	{	// TEMP
+  		uint8_t commandBytes[64] = {B100, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xbf, 0xff, 0xdb, 0x7f, 0xc2, 0xa2, 0x09, 0x90, 0xdb, 0x7e, 0xbf, 0xff, 0x82, 0x34, 0x2e, 0x0b, 0x05, 0x00, 0x00, 0x00, 0x34, 0xc1, 0x00, 0x2c, 0xe2, 0x00, 0x4e, 0x02, 0xa3, 0x98, 0xac, 0x02, 0xdb, 0xd9, 0xbf, 0xff, rateFrames, 0x34, 0xe9, 0x01};
+  		_sendCommandPacket("CKDV", commandBytes, 64);
+}
+void ATEM::changeDVESettingsTemp_RunKeyFrame(uint8_t runType)	{	// runType: 1=A, 2=B, 3=Full, 4=on of the others (with an extra paramter:)
+  		uint8_t commandBytes[8] = {0x02, 0x00, 0x00, 0x02, 0x00, runType, 0xff, 0xff};
+  		_sendCommandPacket("RFlK", commandBytes, 8);
+}
+
+
+// Statuskode retur: KeBP, data byte 7 derefter er fill source, databyte 8 er key source, data byte 2 er upstr. keyer 1-4 (0-3)
+// Key source command er : CKeC - og ellers ens med...
+void ATEM::changeUpstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber)	{
+	if (keyer>=1 && keyer<=4)	{	// Todo: Should match available keyers depending on model?
+	  	// TODO: Validate that input number exists on current model!
+		// 0-15 on 1M/E
+		uint8_t commandBytes[4] = {0, keyer-1, inputNumber, 0};
+		_sendCommandPacket("CKeF", commandBytes, 4);
+	}
+}
+
+// Statuskode retur: DskB, data byte 2 derefter er fill source, data byte 3 er key source, data byte 1 er keyer 1-2 (0-1)
+// Key source command er : CDsC - og ellers ens med...
+void ATEM::changeDownstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber)	{
+	if (keyer>=1 && keyer<=2)	{	// Todo: Should match available keyers depending on model?
+	  	// TODO: Validate that input number exists on current model!
+		// 0-15 on 1M/E
+		uint8_t commandBytes[4] = {0, keyer-1, inputNumber, 0};
+		_sendCommandPacket("CDsF", commandBytes, 4);
+	}
+}
+

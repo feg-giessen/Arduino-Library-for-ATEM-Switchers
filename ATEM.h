@@ -47,11 +47,10 @@ class ATEM
 
 	uint8_t _sessionID;					// Used internally for storing packet size during communication
 	uint16_t _lastRemotePacketID;		// The most recent Remote Packet Id from switcher
-	uint8_t _packetBuffer[96];   			// Buffer for storing segments of the packets from ATEM. Has the size of the largest known "segment" of a packet the ATEM sends.
+	uint8_t _packetBuffer[96];   			// Buffer for storing segments of the packets from ATEM and creating answer packets. Has the size of the largest known "segment" of a packet the ATEM sends.
 
 	uint16_t _localPacketIdCounter;  	// This is our counter for the command packages we might like to send to ATEM
 	boolean _hasInitialized;  			// If true, the initial reception of the ATEM memory has passed and we can begin to respond during the runLoop()
-	uint8_t _answer[84]; 				// Little buffer for creating answers back to the ATEM	<- 36-84 TEMP!
 	unsigned long _lastContact;			// Last time (millis) the switcher sent a packet to us.
 
 		// Selected ATEM State values. Naming attempts to match the switchers own protocol names
@@ -86,18 +85,19 @@ class ATEM
 	uint8_t	_ATEM_ver_l;	// Firmware version, decimals ("right of decimal point")
 
     ATEM();
-    ATEM(IPAddress ip, uint16_t localPort);
-    void begin(IPAddress ip, uint16_t localPort);
+    ATEM(const IPAddress ip, const uint16_t localPort);
+    void begin(const IPAddress ip, const uint16_t localPort);
     void connect();
     void runLoop();
 	bool isConnectionTimedOut();
-	void delay(unsigned int delayTimeMillis);
+	void delay(const unsigned int delayTimeMillis);
 
   private:
 	void _parsePacket(uint16_t packetLength);
 	void _sendAnswerPacket(uint16_t remotePacketID);
 	void _sendCommandPacket(const char cmd[4], uint8_t commandBytes[16], uint8_t cmdBytes);
-
+	void _wipeCleanPacketBuffer();
+	void _sendPacketBufferCmdData(const char cmd[4], uint8_t cmdBytes);
 
   public:
 
@@ -107,6 +107,7 @@ class ATEM
   	void serialOutput(boolean serialOutput);
 	bool hasInitialized();
 	uint16_t getATEM_lastRemotePacketId();
+	uint8_t getATEMmodel();
 
 /********************************
 * ATEM Switcher state methods
@@ -125,6 +126,7 @@ class ATEM
 	uint8_t getTransitionType();
 	uint8_t getTransitionMixTime();
     boolean getFadeToBlackState();
+	uint8_t getFadeToBlackFrameCount();
 	uint8_t getFadeToBlackTime();
 	bool getDownstreamKeyTie(uint8_t keyer);
 	uint8_t getAuxState(uint8_t auxOutput);

@@ -26,12 +26,13 @@ with the ATEM library. If not, see http://www.gnu.org/licenses/.
 
 #include "ATEM.h"
 
+//#include <MemoryFree.h>
 
 /**
  * Constructor (using arguments is deprecated! Use begin() instead)
  */
 ATEM::ATEM(){}
-ATEM::ATEM(IPAddress ip, uint16_t localPort){
+ATEM::ATEM(const IPAddress ip, const uint16_t localPort){
 	_ATEM_FtbS_state = false;
 
 	begin(ip, localPort);
@@ -40,7 +41,7 @@ ATEM::ATEM(IPAddress ip, uint16_t localPort){
 /**
  * Setting up IP address for the switcher (and local port to send packets from)
  */
-void ATEM::begin(IPAddress ip, uint16_t localPort){
+void ATEM::begin(const IPAddress ip, const uint16_t localPort){
 		// Set up Udp communication object:
 	EthernetUDP Udp;
 	_Udp = Udp;
@@ -55,7 +56,6 @@ void ATEM::begin(IPAddress ip, uint16_t localPort){
  * Initiating connection handshake to the ATEM switcher
  */
 void ATEM::connect() {
-
 	_localPacketIdCounter = 1;	// Init localPacketIDCounter to 1;
 	_hasInitialized = false;
 	_lastContact = 0;
@@ -67,7 +67,7 @@ void ATEM::connect() {
 	// Send connectString to ATEM:
 	// TODO: Describe packet contents according to rev.eng. API
 	if (_serialOutput) 	{
-  		Serial.println(("Sending connect packet to ATEM switcher."));
+  		Serial.println(F("Sending connect packet to ATEM switcher."));
 	}
 	byte connectHello[] = {  
 		0x10, 0x14, 0x53, 0xAB, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3A, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
@@ -88,7 +88,7 @@ void ATEM::connect() {
 		if (timeout < currentTime)	{
 			wasTimedOut = true;
 			if (_serialOutput) 	{
-	      		Serial.println(("Timeout waiting for ATEM switcher response"));
+	      		Serial.println(F("Timeout waiting for ATEM switcher response"));
 			}
 			break;
 		}
@@ -173,7 +173,7 @@ void ATEM::runLoop() {
 	  // Currently we don't know any other way to decide if an answer should be sent back...
       if(!_hasInitialized && packetSize == 12) {
         _hasInitialized = true;
-		if (_serialOutput) Serial.println(("_hasInitialized=TRUE"));
+		if (_serialOutput) Serial.println(F("_hasInitialized=TRUE"));
       } 
 	
 		if (packetLength > 12 && !command_INIT)	{	// !command_INIT is because there seems to be no commands in these packets and that will generate an error.
@@ -190,7 +190,7 @@ void ATEM::runLoop() {
 		// CHANGED with arduino 1.0.1..... put back in.
       if (_hasInitialized && command_ACK) {
         if (_serialOutput) {
-			Serial.print(("ACK, rpID: "));
+			Serial.print(F("ACK, rpID: "));
         	Serial.println(_lastRemotePacketID, DEC);
 		}
 
@@ -222,7 +222,7 @@ bool ATEM::isConnectionTimedOut()	{
 	return false;
 }
 
-void ATEM::delay(unsigned int delayTimeMillis)	{	// Responsible delay function which keeps the ATEM run loop up! DO NOT USED INSIDE THIS CLASS! Recursion could happen...
+void ATEM::delay(const unsigned int delayTimeMillis)	{	// Responsible delay function which keeps the ATEM run loop up! DO NOT USE INSIDE THIS CLASS! Recursion could happen...
 	unsigned long timeout = millis();
 	timeout+=delayTimeMillis;
 
@@ -259,12 +259,12 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
           // Extract the specific state information we like to know about:
           if(strcmp(cmdStr, "PrgI") == 0) {  // Program Bus status
 			_ATEM_PrgI = _packetBuffer[-2+8+1];
-            if (_serialOutput) Serial.print(("Program Bus: "));
+            if (_serialOutput) Serial.print(F("Program Bus: "));
             if (_serialOutput) Serial.println(_ATEM_PrgI, DEC);
           } else
           if(strcmp(cmdStr, "PrvI") == 0) {  // Preview Bus status
 			_ATEM_PrvI = _packetBuffer[-2+8+1];
-            if (_serialOutput) Serial.print("Preview Bus: ");
+            if (_serialOutput) Serial.print(F("Preview Bus: "));
             if (_serialOutput) Serial.println(_packetBuffer[-2+8+1], DEC);
           } else
           if(strcmp(cmdStr, "TlIn") == 0) {  // Tally status for inputs 1-8
@@ -281,13 +281,13 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
               _ATEM_TlIn[i] = _packetBuffer[-2+8+2+i];
             }
 
-            if (_serialOutput) Serial.println(("Tally updated: "));
+            if (_serialOutput) Serial.println(F("Tally updated: "));
           } else 
           if(strcmp(cmdStr, "Time") == 0) {  // Time. What is this anyway?
 	      } else 
 	      if(strcmp(cmdStr, "TrPr") == 0) {  // Transition Preview
 			_ATEM_TrPr = _packetBuffer[-2+8+1] > 0 ? true : false;
-            if (_serialOutput) Serial.print(("Transition Preview: "));
+            if (_serialOutput) Serial.print(F("Transition Preview: "));
             if (_serialOutput) Serial.println(_ATEM_TrPr, BIN);
           } else
 	      if(strcmp(cmdStr, "TrPs") == 0) {  // Transition Position
@@ -296,11 +296,11 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
           } else
 	      if(strcmp(cmdStr, "TrSS") == 0) {  // Transition Style and Keyer on next transition
 			_ATEM_TrSS_KeyersOnNextTransition = _packetBuffer[-2+8+2] & B11111;	// Bit 0: Background; Bit 1-4: Key 1-4
-            if (_serialOutput) Serial.print(("Keyers on Next Transition: "));
+            if (_serialOutput) Serial.print(F("Keyers on Next Transition: "));
             if (_serialOutput) Serial.println(_ATEM_TrSS_KeyersOnNextTransition, BIN);
 
 			_ATEM_TrSS_TransitionStyle = _packetBuffer[-2+8+1];
-            if (_serialOutput) Serial.print(("Transition Style: "));	// 0=MIX, 1=DIP, 2=WIPE, 3=DVE, 4=STING
+            if (_serialOutput) Serial.print(F("Transition Style: "));	// 0=MIX, 1=DIP, 2=WIPE, 3=DVE, 4=STING
             if (_serialOutput) Serial.println(_ATEM_TrSS_TransitionStyle, DEC);
           } else
 	      if(strcmp(cmdStr, "FtbS") == 0) {  // Fade To Black State
@@ -317,9 +317,9 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 			idx = _packetBuffer[-2+8+0];
 			if (idx >=0 && idx <=1)	{
 				_ATEM_DskOn[idx] = _packetBuffer[-2+8+1] > 0 ? true : false;
-	            if (_serialOutput) Serial.print(("Dsk Keyer "));
+	            if (_serialOutput) Serial.print(F("Dsk Keyer "));
 	            if (_serialOutput) Serial.print(idx+1);
-	            if (_serialOutput) Serial.print(": ");
+	            if (_serialOutput) Serial.print(F(": "));
 	            if (_serialOutput) Serial.println(_ATEM_DskOn[idx], BIN);
 			}
           } else
@@ -327,9 +327,9 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 			idx = _packetBuffer[-2+8+0];
 			if (idx >=0 && idx <=1)	{
 				_ATEM_DskTie[idx] = _packetBuffer[-2+8+1] > 0 ? true : false;
-	            if (_serialOutput) Serial.print(("Dsk Keyer"));
+	            if (_serialOutput) Serial.print(F("Dsk Keyer"));
 	            if (_serialOutput) Serial.print(idx+1);
-	            if (_serialOutput) Serial.print(" Tie: ");
+	            if (_serialOutput) Serial.print(F(" Tie: "));
 	            if (_serialOutput) Serial.println(_ATEM_DskTie[idx], BIN);
 			}
           } else
@@ -337,9 +337,9 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 				idx = _packetBuffer[-2+8+1];
 				if (idx >=0 && idx <=3)	{
 					_ATEM_KeOn[idx] = _packetBuffer[-2+8+2] > 0 ? true : false;
-		            if (_serialOutput) Serial.print(("Upstream Keyer "));
+		            if (_serialOutput) Serial.print(F("Upstream Keyer "));
 		            if (_serialOutput) Serial.print(idx+1);
-		            if (_serialOutput) Serial.print(": ");
+		            if (_serialOutput) Serial.print(F(": "));
 		            if (_serialOutput) Serial.println(_ATEM_KeOn[idx], BIN);
 				}
 		    } else 
@@ -358,9 +358,9 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 				uint8_t auxInput = _packetBuffer[-2+8+0];
 				if (auxInput >=0 && auxInput <=2)	{
 					_ATEM_AuxS[auxInput] = _packetBuffer[-2+8+1];
-		            if (_serialOutput) Serial.print(("Aux "));
+		            if (_serialOutput) Serial.print(F("Aux "));
 		            if (_serialOutput) Serial.print(auxInput+1);
-		            if (_serialOutput) Serial.print((" Output: "));
+		            if (_serialOutput) Serial.print(F(" Output: "));
 		            if (_serialOutput) Serial.println(_ATEM_AuxS[auxInput], DEC);
 				}
 
@@ -487,6 +487,54 @@ void ATEM::_sendCommandPacket(const char cmd[4], uint8_t commandBytes[64], uint8
 	}
 }
 
+/**
+ * Sets all zeros in packet buffer:
+ */
+void ATEM::_wipeCleanPacketBuffer() {
+	memset(_packetBuffer, 0, 96);
+}
+
+/**
+ * Sets all zeros in packet buffer:
+ */
+void ATEM::_sendPacketBufferCmdData(const char cmd[4], uint8_t cmdBytes)  {
+	
+  if (cmdBytes <= 96-20)	{
+	  //Answer packet preparations:
+	  uint8_t _headerBuffer[20];
+	  memset(_headerBuffer, 0, 20);
+	  _headerBuffer[2] = 0x80;  // ??? API
+	  _headerBuffer[3] = _sessionID;  // Session ID
+	  _headerBuffer[10] = _localPacketIdCounter/256;  // Remote Packet ID, MSB
+	  _headerBuffer[11] = _localPacketIdCounter%256;  // Remote Packet ID, LSB
+
+	  // The rest is zeros.
+
+	  // Command identifier (4 bytes, after header (12 bytes) and local segment length (4 bytes)):
+	  int i;
+	  for (i=0; i<4; i++)  {
+	    _headerBuffer[12+4+i] = cmd[i];
+	  }
+
+	  // Command length:
+	  _headerBuffer[12] = (4+4+cmdBytes)/256;
+	  _headerBuffer[12+1] = (4+4+cmdBytes)%256;
+
+	  // Create header:
+	  uint16_t returnPacketLength = 20+cmdBytes;
+	  _headerBuffer[0] = returnPacketLength/256;
+	  _headerBuffer[1] = returnPacketLength%256;
+	  _headerBuffer[0] |= B00001000;
+
+	  // Send connectAnswerString to ATEM:
+	  _Udp.beginPacket(_switcherIP,  9910);
+	  _Udp.write(_headerBuffer,20);
+	  _Udp.write(_packetBuffer,cmdBytes);
+	  _Udp.endPacket();  
+
+	  _localPacketIdCounter++;
+	}
+}
 
 
 
@@ -520,6 +568,26 @@ uint16_t ATEM::getATEM_lastRemotePacketId()	{
 	return _lastRemotePacketID;
 }
 
+uint8_t ATEM::getATEMmodel()	{
+/*	Serial.println(_ATEM_pin);
+	Serial.println(strcmp(_ATEM_pin, "ATEM Television ") == 0);
+	Serial.println(strcmp(_ATEM_pin, "ATEM 1 M/E Produ") == 0);
+	Serial.println(strcmp(_ATEM_pin, "ATEM 2 M/E Produ") == 0);	// Didn't test this yet!
+*/
+	if (_ATEM_pin[5]=='T')	{
+		if (_serialOutput) Serial.println(F("ATEM TeleVision Studio Detected"));
+		return 0;
+	}
+	if (_ATEM_pin[5]=='1')	{
+		if (_serialOutput) Serial.println(F("ATEM 1 M/E Detected"));
+		return 1;
+	}
+	if (_ATEM_pin[5]=='2')	{
+		if (_serialOutput) Serial.println(F("ATEM 2 M/E Detected"));
+		return 2;
+	}
+	return 255;
+}
 
 
 
@@ -584,6 +652,9 @@ uint8_t ATEM::getTransitionMixTime() {
 boolean ATEM::getFadeToBlackState() {
 	return _ATEM_FtbS_state;    // Active state of Fade-to-black
 }
+uint8_t ATEM::getFadeToBlackFrameCount() {
+	return _ATEM_FtbS_frameCount;    // Returns current frame in the FTB
+}
 uint8_t ATEM::getFadeToBlackTime() {
 	return _ATEM_FtbP_time;		// Transition time for Fade-to-black
 }
@@ -643,20 +714,30 @@ void ATEM::changeProgramInput(uint8_t inputNumber)  {
 void ATEM::changePreviewInput(uint8_t inputNumber)  {
   // TODO: Validate that input number exists on current model!
 
-  uint8_t commandBytes[4] = {0, inputNumber, 0, 0};
-  _sendCommandPacket("CPvI", commandBytes, 4);
+  _wipeCleanPacketBuffer();
+  _packetBuffer[1] = inputNumber;
+  _sendPacketBufferCmdData("CPvI", 4);
 }
 void ATEM::doCut()	{
-  uint8_t commandBytes[4] = {0, 0xef, 0xbf, 0x5f};	// I don't know what that actually means...
-  _sendCommandPacket("DCut", commandBytes, 4);
+  _wipeCleanPacketBuffer();
+  _packetBuffer[1] = 0xef;
+  _packetBuffer[2] = 0xbf;
+  _packetBuffer[3] = 0x5f;
+  _sendPacketBufferCmdData("DCut", 4);
 }
 void ATEM::doAuto()	{
-  uint8_t commandBytes[4] = {0, 0x32, 0x16, 0x02};	// I don't know what that actually means...
-  _sendCommandPacket("DAut", commandBytes, 4);
+  _wipeCleanPacketBuffer();
+  _packetBuffer[1] = 0x32;
+  _packetBuffer[2] = 0x16;
+  _packetBuffer[3] = 0x02;
+  _sendPacketBufferCmdData("DAut", 4);
 }
 void ATEM::fadeToBlackActivate()	{
-	uint8_t commandBytes[4] = {0x00, 0x02, 0x58, 0x99};
-	_sendCommandPacket("FtbA", commandBytes, 4);	// Reflected back from ATEM in "FtbS"
+  _wipeCleanPacketBuffer();
+  _packetBuffer[1] = 0x02;
+  _packetBuffer[2] = 0x58;
+  _packetBuffer[3] = 0x99;
+  _sendPacketBufferCmdData("FtbA", 4);	// Reflected back from ATEM in "FtbS"
 }
 void ATEM::changeTransitionPosition(word value)	{
 	if (value>0 && value<=1000)	{
@@ -692,8 +773,11 @@ void ATEM::changeFadeToBlackTime(uint8_t frames)	{
 }
 void ATEM::changeUpstreamKeyOn(uint8_t keyer, bool state)	{
 	if (keyer>=1 && keyer<=4)	{	// Todo: Should match available keyers depending on model?
-		uint8_t commandBytes[4] = {0x00, keyer-1, state ? 0x01 : 0x00, 0x90};
-		_sendCommandPacket("CKOn", commandBytes, 4);	// Reflected back from ATEM in "KeOn"
+	  _wipeCleanPacketBuffer();
+	  _packetBuffer[1] = keyer-1;
+	  _packetBuffer[2] = state ? 0x01 : 0x00;
+	  _packetBuffer[3] = 0x90;
+	  _sendPacketBufferCmdData("CKOn", 4);	// Reflected back from ATEM in "KeOn"
 	}
 }
 void ATEM::changeUpstreamKeyNextTransition(uint8_t keyer, bool state)	{	// Not supporting "Background"
@@ -711,6 +795,7 @@ void ATEM::changeUpstreamKeyNextTransition(uint8_t keyer, bool state)	{	// Not s
 }
 void ATEM::changeDownstreamKeyOn(uint8_t keyer, bool state)	{
 	if (keyer>=1 && keyer<=2)	{	// Todo: Should match available keyers depending on model?
+		
 		uint8_t commandBytes[4] = {keyer-1, state ? 0x01 : 0x00, 0xff, 0xff};
 		_sendCommandPacket("CDsL", commandBytes, 4);	// Reflected back from ATEM in "DskP" and "DskS"
 	}
@@ -734,6 +819,8 @@ void ATEM::changeAuxState(uint8_t auxOutput, uint8_t inputNumber)  {
 	if (auxOutput>=1 && auxOutput<=3)	{	// Todo: Should match available aux outputs
   		uint8_t commandBytes[4] = {auxOutput-1, inputNumber, 0, 0};
   		_sendCommandPacket("CAuS", commandBytes, 4);
+		//Serial.print("freeMemory()=");
+		//Serial.println(freeMemory());
     }
 }
 void ATEM::settingsMemorySave()	{

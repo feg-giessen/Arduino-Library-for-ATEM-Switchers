@@ -1,11 +1,6 @@
 /*****************
  * Touch Control for ATEM panel
  * Requires connection to a touch screen via the SKAARHOJ utils library.
- * You must display the ATEM multiviewer on the screen in the default configuration
- * The sketch will let you select Preview inputs by touching the input source thumbnails
- * By touching Preview you make a cut, swiping from Preview to Program makes an Auto transion.
- * Touch and hold the Program window to enter special "Directly to Program" mode where selection of input source 
- * goes directly to Program.
  *
  * This example also uses several custom libraries which you must install first. 
  * Search for "#include" in this file to find the libraries. Then download the libraries from http://skaarhoj.com/wiki/index.php/Libraries_for_Arduino
@@ -78,6 +73,9 @@ void setup() {
     // Initialize touch library
   utils.touch_init();
 
+  // Initializing the slider:
+  utils.uniDirectionalSlider_init(10, 35, 35, A4);
+  
   // The line below is calibration numbers for a specific monitor. 
   // Substitute this with calibration for YOUR monitor (see example "Touch_Calibrate")
   utils.touch_calibrationPointRawCoordinates(330,711,763,716,763,363,326,360);
@@ -86,7 +84,7 @@ void setup() {
   Ethernet.begin(mac,ip);
   Serial.begin(9600);
   Serial << F("\n- - - - - - - -\nSerial Started\n");  
-  
+
   // Sets the Bi-color LED to off = "no connection"
   digitalWrite(2,false);
   digitalWrite(3,false);
@@ -108,7 +106,6 @@ bool AtemOnline = false;
 uint8_t MVFieldMapping[] = {1,2,3,4, 5,6,7,8}; // Maps the multiviewer fields 1-4,5-8 in two rows to input source numbers. This needs to correspond to the switcher connected
 
 void loop() {
-
   // Check for packets, respond to them etc. Keeping the connection alive!
   AtemSwitcher.runLoop();
 
@@ -150,6 +147,16 @@ void loop() {
     // Set Bi-color LED to red or green depending on mode:
     digitalWrite(3,directlyToProgram);
     digitalWrite(2,!directlyToProgram);
+
+      // "T-bar" slider:
+    if (utils.uniDirectionalSlider_hasMoved())  {
+      AtemSwitcher.changeTransitionPosition(utils.uniDirectionalSlider_position());
+      AtemSwitcher.delay(20);
+      if (utils.uniDirectionalSlider_isAtEnd())  {
+		AtemSwitcher.changeTransitionPositionDone();
+		AtemSwitcher.delay(5);  
+      }
+    }
   }
 }
 

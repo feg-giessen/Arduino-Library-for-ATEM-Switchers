@@ -19,7 +19,7 @@
 // IP address is an available address you choose on your subnet where the switcher is also present:
 byte mac[] = { 
   0x90, 0xA2, 0xDA, 0x0D, 0x6B, 0x6A };      // MAC address of the Arduino Ethernet behind the screen!
-IPAddress ip(192, 168, 0, 21);              // IP address for the switcher control
+IPAddress ip(192, 168, 10, 99);              // IP address for the switcher control
 
 
 // Include ATEM library and make an instance:
@@ -45,7 +45,7 @@ void setup() {
 
   // Connect to an ATEM switcher on this address and using this local port:
   // The port number is chosen randomly among high numbers.
-  AtemSwitcher.begin(IPAddress(192, 168, 0, 50), 56417);    // <= SETUP!
+  AtemSwitcher.begin(IPAddress(192, 168, 10, 240), 56417);    // <= SETUP!
   AtemSwitcher.serialOutput(true);
   AtemSwitcher.connect();
 }

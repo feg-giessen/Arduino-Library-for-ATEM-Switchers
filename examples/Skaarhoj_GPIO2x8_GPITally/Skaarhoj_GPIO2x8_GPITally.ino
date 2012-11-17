@@ -29,7 +29,7 @@
 // IP address is an available address you choose on your subnet where the switcher is also present:
 byte mac[] = { 
   0x90, 0xA2, 0xDA, 0x00, 0xF2, 0x00 };      // <= SETUP!
-IPAddress ip(192, 168, 0, 21);              // <= SETUP!
+IPAddress ip(192, 168, 10, 99);              // <= SETUP!
 
 
 // Include ATEM library and make an instance:
@@ -75,7 +75,7 @@ void setup() {
 
 
   // Initialize a connection to the switcher:
-  AtemSwitcher.begin(IPAddress(192, 168, 0, 50), 56417);    // <= SETUP!
+  AtemSwitcher.begin(IPAddress(192, 168, 10, 240), 56417);    // <= SETUP!
 //  AtemSwitcher.serialOutput(true);
   AtemSwitcher.connect();
 }

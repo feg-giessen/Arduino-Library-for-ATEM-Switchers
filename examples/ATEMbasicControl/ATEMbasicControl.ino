@@ -28,7 +28,7 @@
 // IP address is an available address you choose on your subnet where the switcher is also present:
 byte mac[] = { 
   0x90, 0xA2, 0xDA, 0x00, 0xE8, 0xE9 };		// <= SETUP
-IPAddress ip(192, 168, 0, 20);				// <= SETUP
+IPAddress ip(192, 168, 10, 99);				// <= SETUP
 
 
 // Include ATEM library and make an instance:
@@ -36,7 +36,7 @@ IPAddress ip(192, 168, 0, 20);				// <= SETUP
 
 // Connect to an ATEM switcher on this address and using this local port:
 // The port number is chosen randomly among high numbers.
-ATEM AtemSwitcher(IPAddress(192, 168, 0, 50), 56417);  // <= SETUP (the IP address of the ATEM switcher)
+ATEM AtemSwitcher(IPAddress(192, 168, 10, 240), 56417);  // <= SETUP (the IP address of the ATEM switcher)
 
 
 

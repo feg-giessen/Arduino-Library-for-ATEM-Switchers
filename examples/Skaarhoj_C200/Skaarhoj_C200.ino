@@ -102,6 +102,105 @@ SkaarhojUtils utils;
 
 
 
+/*************************************************************
+ *
+ *
+ *                     SMARTSWITCH FUNCTIONS
+ *
+ *
+ **********************************************************/
+
+
+#include <SkaarhojSmartSwitch.h>
+SkaarhojSmartSwitch SmartSwitch;
+
+// AUX graphic:
+static uint8_t SSS_AUXgfx[] PROGMEM = {
+  64, // width
+  32, // height
+
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x3f, 0xc0, 0x0f,
+   0xf8, 0xe1, 0x0f, 0xfc, 0xc0, 0x3f, 0xc0, 0x0f, 0xf8, 0xc1, 0x0f, 0xfe,
+   0xe0, 0x7f, 0xc0, 0x0f, 0xf8, 0xc1, 0x1f, 0x7e, 0xe0, 0x7f, 0xc0, 0x0f,
+   0xf8, 0x81, 0x3f, 0x3f, 0xf0, 0xfd, 0xc0, 0x0f, 0xf8, 0x01, 0xff, 0x1f,
+   0xf0, 0xf9, 0xc0, 0x0f, 0xf8, 0x01, 0xfe, 0x1f, 0xf8, 0xf9, 0xc1, 0x0f,
+   0xf8, 0x01, 0xfc, 0x0f, 0xfc, 0xf8, 0xc1, 0x0f, 0xf8, 0x01, 0xfc, 0x07,
+   0xfc, 0xf0, 0xc3, 0x0f, 0xf8, 0x01, 0xfc, 0x0f, 0xfe, 0xff, 0xc3, 0x0f,
+   0xf8, 0x01, 0xfe, 0x1f, 0xfe, 0xff, 0xc7, 0x0f, 0xf8, 0x01, 0xff, 0x3f,
+   0xff, 0xff, 0xc7, 0x1f, 0xfc, 0x81, 0x3f, 0x7f, 0xff, 0xff, 0x8f, 0xff,
+   0xff, 0xc0, 0x1f, 0xfe, 0x3f, 0xc0, 0x0f, 0xff, 0x7f, 0xe0, 0x0f, 0xfc,
+   0x1f, 0xc0, 0x1f, 0xf8, 0x0f, 0xf0, 0x07, 0xf8, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00
+  
+};
+
+// AUX graphic:
+static uint8_t SSS_PGMgfx[] PROGMEM = {
+  64, // width
+  32, // height
+
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0xff, 0x1f, 0x00, 0xfe, 0x03, 0xfc, 0x03, 0xff,
+   0xff, 0x7f, 0xc0, 0xff, 0x0f, 0xfc, 0x83, 0xff, 0xff, 0xff, 0xe0, 0xff,
+   0x1f, 0xfc, 0x87, 0xff, 0x3f, 0xfc, 0xf0, 0x87, 0x3f, 0xfc, 0x87, 0xff,
+   0x3f, 0xfc, 0xf8, 0x03, 0x03, 0xfc, 0xc7, 0xff, 0x3f, 0xfc, 0xf8, 0x01,
+   0x00, 0xfc, 0xc7, 0xfb, 0xff, 0xff, 0xf8, 0x01, 0x00, 0x7c, 0xcf, 0xfb,
+   0xff, 0x7f, 0xf8, 0xe1, 0x3f, 0x7c, 0xcf, 0xf9, 0xff, 0x1f, 0xf8, 0xe1,
+   0x3f, 0x7c, 0xef, 0xf9, 0x3f, 0x00, 0xf8, 0xe1, 0x3f, 0x7c, 0xfe, 0xf9,
+   0x3f, 0x00, 0xf8, 0x03, 0x3e, 0x7c, 0xfe, 0xf8, 0x3f, 0x00, 0xf0, 0x07,
+   0x3e, 0x7c, 0xfe, 0xf8, 0x3f, 0x00, 0xe0, 0xff, 0x3f, 0x7c, 0xfc, 0xf8,
+   0x3f, 0x00, 0xc0, 0xff, 0x1f, 0x7c, 0xfc, 0xf8, 0x3f, 0x00, 0x00, 0xfe,
+   0x01, 0x7c, 0x7c, 0xf8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00
+  
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 /*************************************************************
@@ -946,10 +1045,10 @@ void setup() {
     cmdSelect.setDefaultColor(0);  // Off by default
     extraButtons.setDefaultColor(0);  // Off by default
 
-    previewSelect.testSequence(20);
-    programSelect.testSequence(20);
-    cmdSelect.testSequence(20);
-    extraButtons.testSequence(20);
+    previewSelect.testSequence(10);
+    programSelect.testSequence(10);
+    cmdSelect.testSequence(10);
+    extraButtons.testSequence(10);
   
     // Initializing the slider:
     utils.uniDirectionalSlider_init();
@@ -961,6 +1060,14 @@ void setup() {
     attachInterrupt(1, _enc0active, RISING);
     
     menuSetup();
+    
+    
+        // Switches on address 4 + SDI on pins 48+49:  
+    SmartSwitch.begin(4,48,49);
+    SmartSwitch.setButtonBrightness(7, BUTTON_ALL);
+    SmartSwitch.setButtonColor(2,2,2,BUTTON_ALL);
+    SmartSwitch.clearScreen(BUTTON_ALL);
+    
   
     // Connect to an ATEM switcher on this address and using this local port:
     // The port number is chosen randomly among high numbers.
@@ -1069,8 +1176,10 @@ void loop() {
       readingButtonsAndSendingCommands();
       AtemSwitcher.runLoop();  // Call here and there...
       
-      extraButtonsCommands();
+      extraButtonsCommands2();
       AtemSwitcher.runLoop();  // Call here and there...
+      
+      smartSwitches();
     }
   }
 }
@@ -1260,19 +1369,25 @@ void setButtonColors()  {
     
     // Setting colors of PROGRAM input select buttons:
     for (uint8_t i=1;i<=8;i++)  {
-      if (BUSselect==0)  {  // Normal
+      if (BUSselect==0)  {  // Normal: PROGRAM
         if (AtemSwitcher.getProgramTally(i))  {
           programSelect.setButtonColor(i, 2);
         } else {
           programSelect.setButtonColor(i, 5);   
         }
-      } else if (BUSselect<=3)  {
+      } else if (BUSselect<=3)  {  // 1-3: AUX bus:
         if (i==8?(AtemSwitcher.getAuxState(BUSselect)==16):(AtemSwitcher.getAuxState(BUSselect)==i))  {
           programSelect.setButtonColor(i, 2);
         } else {
           programSelect.setButtonColor(i, 5);   
         }
-      }
+      } else if (BUSselect==10 || BUSselect==11)  {
+        if (AtemSwitcher.getMediaPlayerStill(BUSselect-9)==i)  {
+          programSelect.setButtonColor(i, 4);
+        } else {
+          programSelect.setButtonColor(i, 5);   
+        }
+      }       
     }
     
       // The user button mode tells us, how the four user buttons should be programmed. This sets the colors to match the function:
@@ -1350,6 +1465,10 @@ void readingButtonsAndSendingCommands() {
     } else if (BUSselect<=3)  {
       for (uint8_t i=1;i<=8;i++)  {
         if (programSelect.isButtonIn(i, busSelection))  { AtemSwitcher.changeAuxState(BUSselect, i==8?16:i); }  // When selecting AUX bus, input 8 is mapped to PROGRAM instead
+      }
+    } else if (BUSselect==10 || BUSselect==11)  {
+      for (uint8_t i=1;i<=8;i++)  {
+        if (programSelect.isButtonIn(i, busSelection))  { AtemSwitcher.mediaPlayerSelectSource(BUSselect-9, false, i); }
       }
     } 
   
@@ -1489,5 +1608,111 @@ void cmd_pipToggle()  {
 }
 
 
+
+uint8_t prevBUSselect = 255;
+uint8_t pipMode = 0;
+uint8_t prevPipMode = 0;
+void smartSwitches()  {
+  word buttons = SmartSwitch.buttonUpAll();
+  
+    // SmartSwitch 1 action:
+  uint8_t j = 0;
+  if(buttons & (1 << j)) {
+    BUSselect++;
+    if (BUSselect>3)  {
+      BUSselect=0;
+    }
+  }
+    // SmartSwitch 1 display content:
+  if (prevBUSselect!=BUSselect)  {
+     prevBUSselect =  BUSselect;
+     switch(BUSselect)  {
+       case 1:
+        SmartSwitch.clearPixmap(1<<j);
+        SmartSwitch.drawImage(BUTTON1, 0, 0, IMAGE_LEFT, SSS_AUXgfx);        
+        SmartSwitch.writeText(BUTTON1, "AUX 1", 3, TEXT_CENTER | TEXT_BACKGROUND | TEXT_REVERSE);
+        SmartSwitch.setButtonColor(2,0,0, 1<<j);
+        SmartSwitch.updateScreen(1<<j);
+       break;
+       case 2:
+        SmartSwitch.clearPixmap(1<<j);
+        SmartSwitch.writeText(BUTTON1, "AUX 2", 3, TEXT_CENTER | TEXT_BACKGROUND | TEXT_REVERSE);
+        SmartSwitch.setButtonColor(2,0,0, 1<<j);
+        SmartSwitch.updateScreen(1<<j);
+       break;
+       case 3:
+        SmartSwitch.clearPixmap(1<<j);
+        SmartSwitch.writeText(BUTTON1, "AUX 3", 3, TEXT_CENTER | TEXT_BACKGROUND | TEXT_REVERSE);
+        SmartSwitch.setButtonColor(2,0,0, 1<<j);
+        SmartSwitch.updateScreen(1<<j);
+       break;
+       case 10:
+        SmartSwitch.clearPixmap(1<<j);
+        SmartSwitch.writeText(BUTTON1, "MEDIA 1", 3, TEXT_CENTER | TEXT_BACKGROUND | TEXT_REVERSE);
+        SmartSwitch.setButtonColor(2,2,0, 1<<j);
+        SmartSwitch.updateScreen(1<<j);
+       break;
+       case 11:
+        SmartSwitch.clearPixmap(1<<j);
+        SmartSwitch.writeText(BUTTON1, "MEDIA 2", 3, TEXT_CENTER | TEXT_BACKGROUND | TEXT_REVERSE);
+        SmartSwitch.setButtonColor(2,2,0, 1<<j);
+        SmartSwitch.updateScreen(1<<j);
+       break;
+       case 0:
+        SmartSwitch.clearPixmap(1<<j);
+        SmartSwitch.writeText(BUTTON1, "PROGRAM", 3, TEXT_CENTER | TEXT_BACKGROUND | TEXT_REVERSE);
+        SmartSwitch.setButtonColor(2,2,2, 1<<j);
+        SmartSwitch.updateScreen(1<<j);
+       break;
+       default:
+        SmartSwitch.clearPixmap(1<<j);
+        SmartSwitch.writeText(BUTTON1, "N/A", 3, TEXT_CENTER | TEXT_BACKGROUND | TEXT_REVERSE);
+        SmartSwitch.setButtonColor(0,0,0, 1<<j);
+        SmartSwitch.updateScreen(1<<j);
+       break;
+     }
+  }
+
+    // SmartSwitch 1 action:
+  j = 1;
+  if(buttons & (1 << j)) {
+    pipMode++;
+    if (pipMode>2)  {
+      pipMode=1;
+    }
+     switch(pipMode)  {
+       case 1:
+        AtemSwitcher.changeDVESettingsTemp(-8500,-4500,300,300);
+       break;
+       case 2:
+        AtemSwitcher.changeDVESettingsTemp(8500,-4500,300,300);
+       break;
+     }
+  }
+    // SmartSwitch 1 display content:
+  if (prevPipMode!=pipMode)  {
+     prevPipMode =  pipMode;
+     switch(pipMode)  {
+       case 1:
+        SmartSwitch.clearPixmap(1<<j);
+        SmartSwitch.writeText(BUTTON2, "PIP 1", 3, TEXT_CENTER | TEXT_BACKGROUND | TEXT_REVERSE);
+        SmartSwitch.setButtonColor(1,1,2, 1<<j);
+        SmartSwitch.updateScreen(1<<j);
+       break;
+       case 2:
+        SmartSwitch.clearPixmap(1<<j);
+        SmartSwitch.writeText(BUTTON2, "PIP 2", 3, TEXT_CENTER | TEXT_BACKGROUND | TEXT_REVERSE);
+        SmartSwitch.setButtonColor(1,1,2, 1<<j);
+        SmartSwitch.updateScreen(1<<j);
+       break;
+       default:
+        SmartSwitch.clearPixmap(1<<j);
+        SmartSwitch.writeText(BUTTON2, "N/A", 3, TEXT_CENTER | TEXT_BACKGROUND | TEXT_REVERSE);
+        SmartSwitch.updateScreen(1<<j);
+        SmartSwitch.setButtonColor(0,0,0, 1<<j);
+       break;
+     }
+  }
+}
 
 

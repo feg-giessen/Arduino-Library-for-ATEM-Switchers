@@ -6,7 +6,7 @@
  * Search for "#include" in this file to find the libraries. Then download the libraries from http://skaarhoj.com/wiki/index.php/Libraries_for_Arduino
  *
  * Works with ethernet-enabled arduino devices (Arduino Ethernet or a model with Ethernet shield)
- * Make sure to configure IP and addresses! Look for all instances of "<= SETUP" in the code below!
+ * Make sure to configure IP and addresses first using the sketch "ConfigEthernetAddresses"
  * 
  * - kasper
  */
@@ -16,21 +16,18 @@
 // Including libraries: 
 #include <SPI.h>         // needed for Arduino versions later than 0018
 #include <Ethernet.h>
-
-
-// MAC address and IP address for this *particular* Arduino / Ethernet Shield!
-// The MAC address is printed on a label on the shield or on the back of your device
-// The IP address should be an available address you choose on your subnet where the switcher is also present
-byte mac[] = { 
-  0x90, 0xA2, 0xDA, 0x0D, 0x6C, 0x73 };      // <= SETUP!  MAC address of the Arduino
-IPAddress ip(192, 168, 10, 99);              // <= SETUP!  IP address of the Arduino
-
+#include <EEPROM.h>      // For storing IP numbers
 
 // Include ATEM library and make an instance:
-// Connect to an ATEM switcher on this address and using this local port:
-// The port number is chosen randomly among high numbers.
 #include <ATEM.h>
-ATEM AtemSwitcher(IPAddress(192, 168, 10, 240), 56417);  // <= SETUP (the IP address of the ATEM switcher)
+ATEM AtemSwitcher;
+
+//#include <MemoryFree.h>
+
+// Configure the IP addresses and MAC address with the sketch "ConfigEthernetAddresses":
+uint8_t ip[4];        // Will hold the Arduino IP address
+uint8_t atem_ip[4];  // Will hold the ATEM IP address
+uint8_t mac[6];    // Will hold the Arduino Ethernet shield/board MAC address (loaded from EEPROM memory, set with ConfigEthernetAddresses example sketch)
 
 
 
@@ -59,9 +56,49 @@ SkaarhojBI8 cmdSelect;
 void setup() { 
 
   // Start the Ethernet, Serial (debugging) and UDP:
-  Ethernet.begin(mac,ip);
-  Serial.begin(9600);  
-  Serial << F("\n- - - - - - - -\nSerial Started\n");
+  Serial.begin(9600);
+  Serial << F("\n- - - - - - - -\nSerial Started\n");  
+
+
+
+  // Setting the Arduino IP address:
+  ip[0] = EEPROM.read(0+2);
+  ip[1] = EEPROM.read(1+2);
+  ip[2] = EEPROM.read(2+2);
+  ip[3] = EEPROM.read(3+2);
+
+  // Setting the ATEM IP address:
+  atem_ip[0] = EEPROM.read(0+2+4);
+  atem_ip[1] = EEPROM.read(1+2+4);
+  atem_ip[2] = EEPROM.read(2+2+4);
+  atem_ip[3] = EEPROM.read(3+2+4);
+  
+  Serial << F("SKAARHOJ Device IP Address: ") << ip[0] << "." << ip[1] << "." << ip[2] << "." << ip[3] << "\n";
+  Serial << F("ATEM Switcher IP Address: ") << atem_ip[0] << "." << atem_ip[1] << "." << atem_ip[2] << "." << atem_ip[3] << "\n";
+  
+  // Setting MAC address:
+  mac[0] = EEPROM.read(10);
+  mac[1] = EEPROM.read(11);
+  mac[2] = EEPROM.read(12);
+  mac[3] = EEPROM.read(13);
+  mac[4] = EEPROM.read(14);
+  mac[5] = EEPROM.read(15);
+  char buffer[18];
+  sprintf(buffer, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  Serial << F("SKAARHOJ Device MAC address: ") << buffer << F(" - Checksum: ")
+        << ((mac[0]+mac[1]+mac[2]+mac[3]+mac[4]+mac[5]) & 0xFF) << "\n";
+  if ((uint8_t)EEPROM.read(16)!=((mac[0]+mac[1]+mac[2]+mac[3]+mac[4]+mac[5]) & 0xFF))  {
+    Serial << F("MAC address not found in EEPROM memory!\n") <<
+      F("Please load example sketch ConfigEthernetAddresses to set it.\n") <<
+      F("The MAC address is found on the backside of your Ethernet Shield/Board\n (STOP)");
+    while(true);
+  }
+
+  Ethernet.begin(mac, ip);
+
+
+
+
 
   // Always initialize Wire before setting up the SkaarhojBI8 class!
   Wire.begin(); 
@@ -77,7 +114,8 @@ void setup() {
   cmdSelect.testSequence();
 
   // Initialize a connection to the switcher:
-  AtemSwitcher.serialOutput(true);  // Remove or comment out this line for production code. Serial output may decrease performance!
+  AtemSwitcher.begin(IPAddress(atem_ip[0],atem_ip[1],atem_ip[2],atem_ip[3]), 56417);
+//  AtemSwitcher.serialOutput(true);  // Remove or comment out this line for production code. Serial output may decrease performance!
   AtemSwitcher.connect();
 }
 

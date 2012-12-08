@@ -70,7 +70,7 @@ void setup() {
   Serial.println(EEPROM.read(16));
 
 
-  Serial.println("DONE! Now, time to upload the sketch for this model...\n (STOP)");
+  Serial.println("DONE! Everything worked! Now, time to upload the sketch for this model...\n");
 
 
 }

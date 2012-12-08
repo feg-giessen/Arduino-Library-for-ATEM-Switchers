@@ -844,6 +844,7 @@ void setup() {
   // 6-9:  ATEM IP
   // 10-16: Arduino MAC address (6+1 byte)
   // 17: Reboot counter
+  // Authoritative list is at Github, SKAARHOJ Open Engineering, document "EEPROM Memory Reservations.rtf"
   
   // Check if EEPROM has ever been initialized, if not, install default IP
   if (EEPROM.read(0) != 12 ||  EEPROM.read(1) != 232)  {  // Just randomly selected values which should be unlikely to be in EEPROM by default.

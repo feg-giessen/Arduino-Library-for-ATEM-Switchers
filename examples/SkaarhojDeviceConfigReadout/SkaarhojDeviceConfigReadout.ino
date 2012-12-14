@@ -16,6 +16,8 @@
 uint8_t ip[4];        // Will hold the Arduino IP address
 uint8_t atem_ip[4];  // Will hold the ATEM IP address
 uint8_t mac[6];    // Will hold the Arduino Ethernet shield/board MAC address (loaded from EEPROM memory, set with ConfigEthernetAddresses example sketch)
+uint8_t atem2_ip[4];  // Will hold the ATEM IP address
+uint8_t videohub_ip[4];  // Will hold the ATEM IP address
 
 
 
@@ -46,15 +48,30 @@ void setup() {
   ip[1] = EEPROM.read(1+2);
   ip[2] = EEPROM.read(2+2);
   ip[3] = EEPROM.read(3+2);
+  Serial << F("SKAARHOJ Device IP Address: ") << ip[0] << "." << ip[1] << "." << ip[2] << "." << ip[3] << "\n";
 
   // Setting the ATEM IP address:
   atem_ip[0] = EEPROM.read(0+2+4);
   atem_ip[1] = EEPROM.read(1+2+4);
   atem_ip[2] = EEPROM.read(2+2+4);
   atem_ip[3] = EEPROM.read(3+2+4);
-  
-  Serial << F("SKAARHOJ Device IP Address: ") << ip[0] << "." << ip[1] << "." << ip[2] << "." << ip[3] << "\n";
   Serial << F("ATEM Switcher IP Address: ") << atem_ip[0] << "." << atem_ip[1] << "." << atem_ip[2] << "." << atem_ip[3] << "\n";
+
+  // Setting the 2. ATEM IP address:
+  atem2_ip[0] = EEPROM.read(40);
+  atem2_ip[1] = EEPROM.read(41);
+  atem2_ip[2] = EEPROM.read(42);
+  atem2_ip[3] = EEPROM.read(43);
+  Serial << F("Second ATEM Switcher IP Address (if any): ") << atem2_ip[0] << "." << atem2_ip[1] << "." << atem2_ip[2] << "." << atem2_ip[3] 
+          << " - Checksum: " << ((atem2_ip[0]+atem2_ip[1]+atem2_ip[2]+atem2_ip[3]) & 0xFF) << " = " << EEPROM.read(44) << " ? \n";
+  
+  // Setting the videohub IP address:
+  videohub_ip[0] = EEPROM.read(45);
+  videohub_ip[1] = EEPROM.read(46);
+  videohub_ip[2] = EEPROM.read(47);
+  videohub_ip[3] = EEPROM.read(48);
+  Serial << F("Videohub IP Address (if any): ") << videohub_ip[0] << "." << videohub_ip[1] << "." << videohub_ip[2] << "." << videohub_ip[3] 
+          << " - Checksum: " << ((videohub_ip[0]+videohub_ip[1]+videohub_ip[2]+videohub_ip[3]) & 0xFF) << " = " << EEPROM.read(49) << " ? \n";
   
   // Setting MAC address:
   mac[0] = EEPROM.read(10);

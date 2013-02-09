@@ -161,7 +161,7 @@ void loop() {
 uint8_t PIP = 0;
 void buttonFunctions(uint8_t buttonDownPress)  {
 
-  // B5:
+  // B5: (CAM1)
   buttons.setButtonColor(5, AtemSwitcher.getProgramInput()==1 ? 2 : 5);
   if (buttons.isButtonIn(5, buttonDownPress))  {   // Executes button command if pressed:
     AtemSwitcher.changeUpstreamKeyOn(1, false); 
@@ -169,7 +169,7 @@ void buttonFunctions(uint8_t buttonDownPress)  {
     AtemSwitcher.changeProgramInput(1); 
   }
 
-  // B1:
+  // B1: (VGA)
   buttons.setButtonColor(1, AtemSwitcher.getProgramInput()==2 ? 2 : 5); 
   if (buttons.isButtonIn(1, buttonDownPress))  {   // Executes button command if pressed:
     AtemSwitcher.changeUpstreamKeyOn(1, false); 

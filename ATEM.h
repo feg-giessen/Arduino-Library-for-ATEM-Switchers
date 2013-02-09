@@ -52,6 +52,7 @@ class ATEM
 	uint16_t _localPacketIdCounter;  	// This is our counter for the command packages we might like to send to ATEM
 	boolean _hasInitialized;  			// If true, the initial reception of the ATEM memory has passed and we can begin to respond during the runLoop()
 	unsigned long _lastContact;			// Last time (millis) the switcher sent a packet to us.
+	unsigned long _isConnectingTime;	// Set to millis() after the connect() function was called - and it will force runLoop() to finish the connection session.
 
 		// Selected ATEM State values. Naming attempts to match the switchers own protocol names
 		// Set through _parsePacket() when the switcher sends state information
@@ -169,6 +170,9 @@ class ATEM
 	void changeDownstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber);
 	void changeDVESettingsTemp_RunKeyFrame(uint8_t runType);
 	void changeDVESettingsTemp_Rate(uint8_t rateFrames);
+	
+	void changeAudioChannelMode(uint8_t channelNumber, uint8_t mode);
+	void changeAudioChannelVolume(uint8_t channelNumber, uint16_t volume);
 };
 
 #endif

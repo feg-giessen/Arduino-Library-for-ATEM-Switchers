@@ -50,12 +50,14 @@ void ATEM::begin(const IPAddress ip, const uint16_t localPort){
 	_localPort = localPort;	// Set local port (just a random number I picked)
 	
 	_serialOutput = false;
+	_isConnectingTime = 0;
 }
 
 /**
  * Initiating connection handshake to the ATEM switcher
  */
 void ATEM::connect() {
+	_isConnectingTime = millis();
 	_localPacketIdCounter = 1;	// Init localPacketIDCounter to 1;
 	_hasInitialized = false;
 	_lastContact = 0;
@@ -74,48 +76,6 @@ void ATEM::connect() {
 	_Udp.beginPacket(_switcherIP,  9910);
 	_Udp.write(connectHello,20);
 	_Udp.endPacket();   
-
-	// Waiting for the ATEM to answer back with a packet 20 bytes long.
-	// According to packet analysis with WireShark, this feedback from ATEM
-	// comes within a few microseconds!
-	uint16_t packetSize = 0;
-	unsigned long timeout = millis();
-	timeout+=2000;	// Timeout of 2 seconds.
-	bool wasTimedOut = false;
-	while(packetSize!=20) {
-		packetSize = _Udp.parsePacket();
-		unsigned long currentTime = millis();
-		if (timeout < currentTime)	{
-			wasTimedOut = true;
-			if (_serialOutput) 	{
-	      		Serial.println(F("Timeout waiting for ATEM switcher response"));
-			}
-			break;
-		}
-	}
-
-	if (!wasTimedOut)	{
-		// Read the response packet. We will only subtract the session ID
-		// According to packet analysis with WireShark, this feedback from ATEM
-		// comes a few microseconds after our connect invitation above. Two packets immediately follow each other.
-		// After approx. 200 milliseconds a third packet is sent from ATEM - a sort of re-sent because it gets impatient.
-		// And it seems that THIS third packet is the one we actually read and respond to. In other words, I believe that 
-		// the ethernet interface on Arduino actually misses the first two for some reason!
-		while(!_Udp.available()){}  // Waiting.... TODO: Implement some way to exit if there is no answer!
-
-		_Udp.read(_packetBuffer,20);
-		_sessionID = _packetBuffer[15];
-
-
-		// Send connectAnswerString to ATEM:
-		_Udp.beginPacket(_switcherIP,  9910);
-	
-		// TODO: Describe packet contents according to rev.eng. API
-		byte connectHelloAnswerString[] = {  
-		  0x80, 0x0c, 0x53, 0xab, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00 };
-		_Udp.write(connectHelloAnswerString,12);
-		_Udp.endPacket();
-	}
 }
 
 /**
@@ -140,77 +100,125 @@ void ATEM::runLoop() {
   // For some more information from a guy seemingly having a similar issue, look here:
   // http://www.arduino.cc/cgi-bin/yabb2/YaBB.pl?num=1282170842
 
+	uint16_t packetSize = 0;
 
 
-  // If there's data available, read a packet
-  uint16_t packetSize = _Udp.parsePacket();
-  if (_Udp.available() && packetSize !=0)   {  
-	//	Serial.print(("PACKET: "));
-	//    Serial.println(packetSize, DEC);
+	if (_isConnectingTime > 0)	{
 
-    // Read packet header of 12 bytes:
-    _Udp.read(_packetBuffer, 12);
+			// Waiting for the ATEM to answer back with a packet 20 bytes long.
+			// According to packet analysis with WireShark, this feedback from ATEM
+			// comes within a few microseconds!
+		packetSize = _Udp.parsePacket();
+		if (_Udp.available() && packetSize==20)   {  	
 
-    // Read out packet length (first word), remote packet ID number and "command":
-    uint16_t packetLength = word(_packetBuffer[0] & B00000111, _packetBuffer[1]);
-    _lastRemotePacketID = word(_packetBuffer[10],_packetBuffer[11]);
-    uint8_t command = _packetBuffer[0] & B11111000;
-    boolean command_ACK = command & B00001000 ? true : false;	// If true, ATEM expects an acknowledgement answer back!
-    boolean command_INIT = command & B00010000 ? true : false;	// If true, ATEM expects an acknowledgement answer back!
-		// The five bits in "command" (from LSB to MSB):
-		// 1 = ACK, "Please respond to this packet" (using the _lastRemotePacketID). Exception: The initial 10-20 kbytes of Switcher status
-		// 2 = ?. Set during initialization? (first hand-shake packets contains that)
-		// 3 = "This is a retransmission". You will see this bit set if the ATEM switcher did not get a timely response to a packet.
-		// 4 = ? ("hello packet" according to "ratte", forum at atemuser.com)
-		// 5 = "This is a response on your request". So set this when answering...
+				// Read the response packet. We will only subtract the session ID
+				// According to packet analysis with WireShark, this feedback from ATEM
+				// comes a few microseconds after our connect invitation above. Two packets immediately follow each other.
+				// After approx. 200 milliseconds a third packet is sent from ATEM - a sort of re-sent because it gets impatient.
+				// And it seems that THIS third packet is the one we actually read and respond to. In other words, I believe that 
+				// the ethernet interface on Arduino actually misses the first two for some reason!
+			_Udp.read(_packetBuffer,20);
+			_sessionID = _packetBuffer[15];
 
-
-    if (packetSize==packetLength) {  // Just to make sure these are equal, they should be!
-	  _lastContact = millis();
-		
-      // If a packet is 12 bytes long it indicates that all the initial information 
-      // has been delivered from the ATEM and we can begin to answer back on every request
-	  // Currently we don't know any other way to decide if an answer should be sent back...
-      if(!_hasInitialized && packetSize == 12) {
-        _hasInitialized = true;
-		if (_serialOutput) Serial.println(F("_hasInitialized=TRUE"));
-      } 
+			// Send connectAnswerString to ATEM:
+			_Udp.beginPacket(_switcherIP,  9910);
 	
-		if (packetLength > 12 && !command_INIT)	{	// !command_INIT is because there seems to be no commands in these packets and that will generate an error.
-			_parsePacket(packetLength);
+			// TODO: Describe packet contents according to rev.eng. API
+			byte connectHelloAnswerString[] = {  
+			  0x80, 0x0c, 0x53, 0xab, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00 };
+			_Udp.write(connectHelloAnswerString,12);
+			_Udp.endPacket();
+
+			_isConnectingTime = 0;	// End connecting
+		} else {
+			if (_isConnectingTime+2000 < (unsigned long)millis())	{
+				if (_serialOutput) 	{
+		      		Serial.println(F("Timeout waiting for ATEM switcher response"));
+				}
+				_isConnectingTime = 0;
+			}
 		}
+	} else {
+	
 
-      // If we are initialized, lets answer back no matter what:
-		// TODO: "_hasInitialized && " should be inserted back before "command_ACK" but 
-		// with Arduino 1.0 UDP library it has proven MORE likely that the initial
-		// connection is made if we ALWAYS answer the switcher back.
-		// Apparently the initial "chaos" of keeping up with the incoming data confuses 
-		// the UDP library so that we might never get initialized - and thus never get connected
-		// So... for now this is how we do it:
-		// CHANGED with arduino 1.0.1..... put back in.
-      if (_hasInitialized && command_ACK) {
-        if (_serialOutput) {
-			Serial.print(F("ACK, rpID: "));
-        	Serial.println(_lastRemotePacketID, DEC);
+
+
+	  // If there's data available, read a packet, empty up:
+	 // Serial.println("ATEM runLoop():");
+	  while(true) {	// Iterate until buffer is empty:
+	  	  packetSize = _Udp.parsePacket();
+		  if (_Udp.available() && packetSize !=0)   {  
+		//	Serial.print("New Packet");
+			//	Serial.print(("PACKET: "));
+			  //  Serial.println(packetSize, DEC);
+
+		    // Read packet header of 12 bytes:
+		    _Udp.read(_packetBuffer, 12);
+
+		    // Read out packet length (first word), remote packet ID number and "command":
+		    uint16_t packetLength = word(_packetBuffer[0] & B00000111, _packetBuffer[1]);
+		    _lastRemotePacketID = word(_packetBuffer[10],_packetBuffer[11]);
+		    uint8_t command = _packetBuffer[0] & B11111000;
+		    boolean command_ACK = command & B00001000 ? true : false;	// If true, ATEM expects an acknowledgement answer back!
+		    boolean command_INIT = command & B00010000 ? true : false;	// If true, ATEM expects an acknowledgement answer back!
+				// The five bits in "command" (from LSB to MSB):
+				// 1 = ACK, "Please respond to this packet" (using the _lastRemotePacketID). Exception: The initial 10-20 kbytes of Switcher status
+				// 2 = ?. Set during initialization? (first hand-shake packets contains that)
+				// 3 = "This is a retransmission". You will see this bit set if the ATEM switcher did not get a timely response to a packet.
+				// 4 = ? ("hello packet" according to "ratte", forum at atemuser.com)
+				// 5 = "This is a response on your request". So set this when answering...
+
+
+		    if (packetSize==packetLength) {  // Just to make sure these are equal, they should be!
+			  _lastContact = millis();
+		
+		      // If a packet is 12 bytes long it indicates that all the initial information 
+		      // has been delivered from the ATEM and we can begin to answer back on every request
+			  // Currently we don't know any other way to decide if an answer should be sent back...
+		      if(!_hasInitialized && packetSize == 12) {
+		        _hasInitialized = true;
+				if (_serialOutput) Serial.println(F("_hasInitialized=TRUE"));
+		      } 
+	
+				if (packetLength > 12 && !command_INIT)	{	// !command_INIT is because there seems to be no commands in these packets and that will generate an error.
+					_parsePacket(packetLength);
+				}
+
+		      // If we are initialized, lets answer back no matter what:
+				// TODO: "_hasInitialized && " should be inserted back before "command_ACK" but 
+				// with Arduino 1.0 UDP library it has proven MORE likely that the initial
+				// connection is made if we ALWAYS answer the switcher back.
+				// Apparently the initial "chaos" of keeping up with the incoming data confuses 
+				// the UDP library so that we might never get initialized - and thus never get connected
+				// So... for now this is how we do it:
+				// CHANGED with arduino 1.0.1..... put back in.
+		      if (_hasInitialized && command_ACK) {
+		        if (_serialOutput) {
+					Serial.print(F("ACK, rpID: "));
+		        	Serial.println(_lastRemotePacketID, DEC);
+				}
+
+		        _sendAnswerPacket(_lastRemotePacketID);
+		      }
+
+		    } else {
+				if (_serialOutput) 	{
+		  /*    		Serial.print(("ERROR: Packet size mismatch: "));
+				    Serial.print(packetSize, DEC);
+				    Serial.print(" != ");
+				    Serial.println(packetLength, DEC);
+			*/	}
+				// Flushing the buffer:
+				// TODO: Other way? _Udp.flush() ??
+		          while(_Udp.available()) {
+		              _Udp.read(_packetBuffer, 96);
+		          }
+		    }
+		  } else {
+			break;	// Exit while(true) loop because there is no more packets in buffer.
 		}
-
-        _sendAnswerPacket(_lastRemotePacketID);
-      }
-
-    } else {
-		if (_serialOutput) 	{
-  /*    		Serial.print(("ERROR: Packet size mismatch: "));
-		    Serial.print(packetSize, DEC);
-		    Serial.print(" != ");
-		    Serial.println(packetLength, DEC);
-	*/	}
-		// Flushing the buffer:
-		// TODO: Other way? _Udp.flush() ??
-          while(_Udp.available()) {
-              _Udp.read(_packetBuffer, 96);
-          }
-    }
-  }
+	  }
+	}
 }
 
 bool ATEM::isConnectionTimedOut()	{
@@ -375,6 +383,20 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 				}
 				_ATEM_pin[16] = 0;	// Termination
 		    } else 
+			if(strcmp(cmdStr, "AMTl") == 0) {  // Audio Monitor Tally (on/off settings)
+				// Same system as for video: "TlIn"... just implement when time.
+		    } else 
+				// Note for future reveng: For master control, volume at least comes back in "AMMO" (CAMM is the command code.)
+			if(strcmp(cmdStr, "AMIP") == 0) {  // Audio Monitor Input P... (state) (On, Off, AFV)
+		/*		Serial.print("Audio Channel: ");
+				Serial.println(_packetBuffer[-2+8+0]);	// _packetBuffer[-2+8+2] seems to be input number (one higher...)
+				Serial.print(" - State: ");
+				Serial.println(_packetBuffer[-2+8+3] == 0x01 ? "ON" : (_packetBuffer[-2+8+3] == 0x02 ? "AFV" : (_packetBuffer[-2+8+3] > 0 ? "???" : "OFF")));
+				Serial.print(" - Volume: ");
+				Serial.print((uint16_t)_packetBuffer[-2+8+4]*256+_packetBuffer[-2+8+5]);
+				Serial.print("/");
+				Serial.println((uint16_t)_packetBuffer[-2+8+6]*256+_packetBuffer[-2+8+7]);
+		   */ } else 
 			if(strcmp(cmdStr, "VidM") == 0) {  // Video format (SD, HD, framerate etc.)
 				_ATEM_VidM = _packetBuffer[-2+8+0];	
 		    } else {
@@ -927,3 +949,64 @@ void ATEM::changeDownstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber)	{
 	}
 }
 
+void ATEM::changeAudioChannelMode(uint8_t channelNumber, uint8_t mode)	{	// Mode: 0=Off, 1=On, 2=AFV
+  if (mode<=2)	{
+	  _wipeCleanPacketBuffer();
+	  _packetBuffer[0] = 0x01;	// Setting ON/OFF/AFV
+	  _packetBuffer[1] = channelNumber;	// Input 1-8 = channel 0-7(!), Media Player 1+2 = channel 8-9, Ext = channel 10 (For 1M/E!)
+	  _packetBuffer[2] = mode;	// 0=Off, 1=On, 2=AFV
+	  _packetBuffer[3] = 0x03;	
+	  _packetBuffer[9] = mode>0 ? 1 : 0;	// This seems to indicate whether the command turned it on or off...
+	  _sendPacketBufferCmdData("CAMI", 12);	// Reflected back from ATEM as "AMIP"
+  }
+}
+void ATEM::changeAudioChannelVolume(uint8_t channelNumber, uint16_t volume)	{
+
+	/*
+	Based on data from the ATEM switcher, this is an approximation to the integer value vs. the dB value:
+	dB	+60 added	Number from protocol		Interpolated
+	6	66	65381		65381
+	3	63	46286		46301,04
+	0	60	32768		32789,13
+	-3	57	23198		23220,37
+	-6	54	16423		16444,03
+	-9	51	11627		11645,22
+	-20	40	3377		3285,93
+	-30	30	1036		1040,21
+	-40	20	328		329,3
+	-50	10	104		104,24
+	-60	0	33		33
+
+	for (int i=-60; i<=6; i=i+3)  {
+	   Serial.print(i);
+	   Serial.print(" dB = ");
+	   Serial.print(33*pow(1.121898585, i+60));
+	   Serial.println();
+	}
+
+
+	*/
+
+
+  _wipeCleanPacketBuffer();
+  _packetBuffer[0] = 0x06;	// Setting Level
+  _packetBuffer[1] = channelNumber;	// Input 1-8 = channel 0-7(!), Media Player 1+2 = channel 8-9, Ext = channel 10 (For 1M/E!)
+//  _packetBuffer[2] = 0xff;	// ??
+//  _packetBuffer[3] = 0xbf;	// ??
+
+	if (volume > 0xff65)	{
+		volume = 0xff65;
+	}
+
+  _packetBuffer[4] = volume/256;	
+  _packetBuffer[5] = volume%256;	
+  _packetBuffer[6] = volume/256;	
+  _packetBuffer[7] = volume%256;	
+
+//  _packetBuffer[8] = 0x57;	// ??
+//  _packetBuffer[9] = 0x84;	// ??
+//  _packetBuffer[10] = 0xb3;	// ??
+//  _packetBuffer[11] = 0xac;	// ??
+
+  _sendPacketBufferCmdData("CAMI", 12);	// Reflected back from ATEM as "AMIP"
+}

@@ -9,20 +9,18 @@
 
 
 // Including libraries: 
-#include <SPI.h>         // needed for Arduino versions later than 0018
-#include <Ethernet.h>
 #include <EEPROM.h>      // For storing IP numbers
 
 // MAC address for this *particular* Ethernet Shield!
 // MAC address is printed on the shield
 static uint8_t mac[] = { 
-  0x90, 0xA2, 0xDA, 0x0D, 0x82, 0x2D };    // MAC address of your SKAARHOJ device
+  0x90, 0xA2, 0xDA, 0x0D, 0x3F, 0xB6 };    // MAC address of your SKAARHOJ device
 
 static uint8_t ip[] = {
-  192, 168, 10, 99 };    // IP address of your SKAARHOJ device
+  192, 168, 10, 99 };    // IP address of your SKAARHOJ device, typical default is 192.168.10.99
 
 static uint8_t atemip[] = {
-  192, 168, 10, 240 };    // IP address of your ATEM switcher
+  192, 168, 10, 240 };    // IP address of your ATEM switcher, factory default is 192.168.10.240
 
 
 
@@ -32,29 +30,42 @@ void setup() {
   Serial.begin(9600);
   Serial.println("\n- - - - - - - -\nSerial Started (ConfigEthernetAddresses)\n");
 
-  // Set these random values so this initialization is only run once!
+
+  // *********************************
+  // INITIALIZE EEPROM memory:
+  // *********************************
+  // EEPROM MEMORY:
+  // 0-1:  Initialization check
+  // 2-5:  Arduino IP
+  // 6-9:  ATEM IP
+  // 10-16: Arduino MAC address (6+1 byte)
+  // 17: Reboot counter
+  
+  // Set these random values so this initialization is only run once! 
+  // These values confirm that Device IP and ATEM IP has been set at some point (they don't have checksums)
   EEPROM.write(0,12);
   EEPROM.write(1,232);
 
-  // Set default IP address for Arduino/C100 panel (192.168.10.99)
+  // Set default IP address for Arduino (192.168.10.99)
   EEPROM.write(2,ip[0]);
   EEPROM.write(3,ip[1]);
   EEPROM.write(4,ip[2]);
   EEPROM.write(5,ip[3]);
   sprintf(buffer, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
-  Serial.print("Storing SKAARHOJ Device (Arduino) IP address: ");
+  Serial.print("Storing SKAARHOJ Device (Arduino) IP address: \n    ");
   Serial.println(buffer);
 
   // Set default IP address for ATEM Switcher (192.168.10.240):
-  EEPROM.write(2+4,atemip[0]);
-  EEPROM.write(3+4,atemip[1]);
-  EEPROM.write(4+4,atemip[2]);
-  EEPROM.write(5+4,atemip[3]);
+  EEPROM.write(6,atemip[0]);
+  EEPROM.write(7,atemip[1]);
+  EEPROM.write(8,atemip[2]);
+  EEPROM.write(9,atemip[3]);
   sprintf(buffer, "%d.%d.%d.%d", atemip[0], atemip[1], atemip[2], atemip[3]);
-  Serial.print("Storing ATEM IP address: ");
+  Serial.print("Storing ATEM IP address: \n    ");
   Serial.println(buffer);
 
-  // Set MAC address:
+
+  // Set MAC address + checksum:
   EEPROM.write(10,mac[0]);
   EEPROM.write(11,mac[1]);
   EEPROM.write(12,mac[2]);
@@ -64,15 +75,15 @@ void setup() {
   EEPROM.write(16, (mac[0]+mac[1]+mac[2]+mac[3]+mac[4]+mac[5]) & 0xFF);
 
   sprintf(buffer, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-  Serial.print("Storing SKAARHOJ Device (Arduino) MAC address: ");
+  Serial.print("Storing SKAARHOJ Device (Arduino) MAC address: \n    ");
   Serial.print(buffer);
   Serial.print(" - Checksum: ");
   Serial.println(EEPROM.read(16));
 
 
+  EEPROM.write(17,0);
+
   Serial.println("DONE! Everything worked! Now, time to upload the sketch for this model...\n");
-
-
 }
 
 void loop() {

@@ -763,7 +763,7 @@ void ATEM::fadeToBlackActivate()	{
 }
 void ATEM::changeTransitionPosition(word value)	{
 	if (value>0 && value<=1000)	{
-		uint8_t commandBytes[4] = {0, 0xe4, value/256, value%256};
+		uint8_t commandBytes[4] = {0, 0xe4, (value*10)/256, (value*10)%256};
 		_sendCommandPacket("CTPs", commandBytes, 4);  // Change Transition Position (CTPs)
 	}
 }

@@ -47,7 +47,9 @@ class ATEM
 
 	uint8_t _sessionID;					// Used internally for storing packet size during communication
 	uint16_t _lastRemotePacketID;		// The most recent Remote Packet Id from switcher
-	uint8_t _packetBuffer[96];   			// Buffer for storing segments of the packets from ATEM and creating answer packets. Has the size of the largest known "segment" of a packet the ATEM sends.
+	uint8_t _packetBuffer[96];   			// Buffer for storing segments of the packets from ATEM and creating answer packets.
+	uint16_t _cmdLength;					// Used when parsing packets
+	uint16_t _cmdPointer;					// Used when parsing packets
 
 	uint16_t _localPacketIdCounter;  	// This is our counter for the command packages we might like to send to ATEM
 	boolean _hasInitialized;  			// If true, the initial reception of the ATEM memory has passed and we can begin to respond during the runLoop()
@@ -77,6 +79,8 @@ class ATEM
 	uint8_t _ATEM_MPType[2];	// Media Player 1/2: Type (1=Clip, 2=Still)
 	uint8_t _ATEM_MPStill[2];	// Still number (if MPType==2)
 	uint8_t _ATEM_MPClip[2];	// Clip number (if MPType==1)
+	uint16_t _ATEM_AMLv[2];	// Audio Meter Levels for a specific channel, see _ATEM_AMLv_channel
+	uint8_t _ATEM_AMLv_channel;		// The channel to read audio levels for.
 
 	
 	
@@ -95,6 +99,7 @@ class ATEM
 
   private:
 	void _parsePacket(uint16_t packetLength);
+	bool _readToPacketBuffer();
 	void _sendAnswerPacket(uint16_t remotePacketID);
 	void _sendCommandPacket(const char cmd[4], uint8_t commandBytes[16], uint8_t cmdBytes);
 	void _wipeCleanPacketBuffer();
@@ -134,6 +139,7 @@ class ATEM
 	uint8_t getMediaPlayerType(uint8_t mediaPlayer);
 	uint8_t getMediaPlayerStill(uint8_t mediaPlayer);
 	uint8_t getMediaPlayerClip(uint8_t mediaPlayer);
+	uint16_t getAudioLevels(uint8_t channel);
 
 
 /********************************
@@ -170,9 +176,13 @@ class ATEM
 	void changeDownstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber);
 	void changeDVESettingsTemp_RunKeyFrame(uint8_t runType);
 	void changeDVESettingsTemp_Rate(uint8_t rateFrames);
+	void changeKeyerMask(uint16_t topMask, uint16_t bottomMask, uint16_t leftMask, uint16_t rightMask);
+	void changeDownstreamKeyMask(uint8_t keyer, uint16_t topMask, uint16_t bottomMask, uint16_t leftMask, uint16_t rightMask);
 	
 	void changeAudioChannelMode(uint8_t channelNumber, uint8_t mode);
 	void changeAudioChannelVolume(uint8_t channelNumber, uint16_t volume);
+	void sendAudioLevelNumbers(bool enable);
+	void setAudioLevelReadoutChannel(uint8_t AMLv);
 };
 
 #endif

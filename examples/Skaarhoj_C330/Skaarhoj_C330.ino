@@ -1,5 +1,5 @@
 /*****************
- * Basis control for the SKAARHOJ C20x series devices
+ * Basis control for the SKAARHOJ C330 series devices
  * This example is programmed for ATEM 1M/E versions
  *
  * This example also uses several custom libraries which you must install first. 
@@ -27,7 +27,7 @@
 
 static uint8_t default_ip[] = {     // IP for Configuration Mode (192.168.10.99)
   192, 168, 10, 99 };
-uint8_t ip[4];        // Will hold the C200 IP address
+uint8_t ip[4];        // Will hold the C330 IP address
 uint8_t atem_ip[4];  // Will hold the ATEM IP address
 uint8_t mac[6];    // Will hold the Arduino Ethernet shield/board MAC address (loaded from EEPROM memory, set with ConfigEthernetAddresses example sketch)
 
@@ -37,6 +37,9 @@ int greenLEDPin = 22;
 int redLEDPin = 23;
 int powerMgmPin = 24;
 int powerStatusDetectPin = A10;
+
+bool screenPower = true;  // Flag, which if set true, will make sure the screen is turned on. False will turn screen off.
+
 
 
 /* MEMORY USAGE:
@@ -72,11 +75,15 @@ SkaarhojBI8 previewSelect;
 SkaarhojBI8 programSelect;
 SkaarhojBI8 cmdSelect;
 SkaarhojBI8 extraButtons;
+PCA9685 VUledDriver; 
 
 // All related to library "SkaarhojUtils". Used for rotary encoder and "T-bar" potentiometer:
 #include "SkaarhojUtils.h"
 SkaarhojUtils utils;
+SkaarhojUtils utils2;
 
+#include <SkaarhojGPIO2x8.h>
+SkaarhojGPIO2x8 GPIOboard;
 
 
 
@@ -357,7 +364,7 @@ void lcdPrintValue(int number, uint8_t padding)  {
 
 uint8_t userButtonMode = 0;  // 0-3
 uint8_t setMenuValues = 0;  //
-uint8_t BUSselect = 0;  // Preview/Program by default
+uint8_t BUSselect = 5;  // Preview/Program by default
 
 // Configuration of the menu items and hierarchi plus call-back functions:
 MenuBackend menu = MenuBackend(menuUseEvent,menuChangeEvent);
@@ -388,7 +395,7 @@ MenuBackend menu = MenuBackend(menuUseEvent,menuChangeEvent);
 // This function builds the menu and connects the correct items together
 void menuSetup()
 {
-  Serial << F("Setting up menu...");
+  Serial << F("Setting up menu...\n");
 
   // Add first to the menu root:
   menu.getRoot().add(menu_mediab1); 
@@ -469,9 +476,9 @@ void menuChangeEvent(MenuChangeEvent changed)
       // Show default text.... status whatever....
     clearLCD();
     lcdPosition(0,0);
-    LCD.print(F("    SKAARHOJ    "));    
+    LCD.print(F("  DTU/SKAARHOJ  "));    
     lcdPosition(1,0);
-    LCD.print(F("      C200      "));    
+    LCD.print(F("      C330      "));    
     setMenuValues=0;
   } else {
       // Show the item name in upper line:
@@ -873,7 +880,7 @@ void formCmd(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
       repeat = server.readPOSTparam(name, 16, value, 16);
       String Name = String(name);
 
-      // C200 Panel IP:
+      // C330 Panel IP:
       if (Name.startsWith("IP"))  {
         int addr = strtoul(name + 2, NULL, 10);
         int val = strtoul(value, NULL, 10);
@@ -984,7 +991,6 @@ void setup() {
   pinMode(redLEDPin, OUTPUT);
   pinMode(greenLEDPin, OUTPUT);
 
-  powerOnScreen();
 
 
   // *********************************
@@ -1045,7 +1051,7 @@ void setup() {
   char buffer[18];
   sprintf(buffer, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   Serial << F("SKAARHOJ Device MAC address: ") << buffer << F(" - Checksum: ")
-        << ((mac[0]+mac[1]+mac[2]+mac[3]+mac[4]+mac[5]) & 0xFF);
+        << ((mac[0]+mac[1]+mac[2]+mac[3]+mac[4]+mac[5]) & 0xFF) << "\n";
   if ((uint8_t)EEPROM.read(16)!=((mac[0]+mac[1]+mac[2]+mac[3]+mac[4]+mac[5]) & 0xFF))  {
     Serial << F("MAC address not found in EEPROM memory!\n") <<
       F("Please load example sketch ConfigEthernetAddresses to set it.\n") <<
@@ -1063,9 +1069,9 @@ void setup() {
   LCD.begin(9600);
   clearLCD();
   lcdPosition(0,0);
-  LCD.print(F("    SKAARHOJ    "));
+  LCD.print(F("  DTU/SKAARHOJ  "));
   lcdPosition(1,0);
-  LCD.print(F("      C200      "));
+  LCD.print(F("      C330      "));
   backlightOn();
   delay(2000);
 
@@ -1130,7 +1136,26 @@ void setup() {
     programSelect.testSequence(10);
     cmdSelect.testSequence(10);
     extraButtons.testSequence(10);
+
+      // VU meter: 
+    VUledDriver.begin(B100000);  // Address 32
+    VUledDriver.init();
+
+    // Tally board:
+    GPIOboard.begin(5);
   
+    // Set:
+    for (int i=1; i<=8; i++)  {
+      GPIOboard.setOutput(i,HIGH);
+      delay(100); 
+    }
+    // Clear:
+    for (int i=1; i<=8; i++)  {
+      GPIOboard.setOutput(i,LOW);
+      delay(100); 
+    }
+
+
     // Initializing the slider:
     utils.uniDirectionalSlider_init();
     utils.uniDirectionalSlider_hasMoved();
@@ -1189,7 +1214,7 @@ bool AtemOnline = false;
 
 // The loop function:
 void loop() {
-  
+
   if (isConfigMode)  {
     webserver.processConnection();
   } else {
@@ -1198,6 +1223,7 @@ void loop() {
     AtemSwitcher.runLoop();
     menuNavigation();
     menuValues();
+    powerOnScreen();
     
     // If connection is gone, try to reconnect:
     if (AtemSwitcher.isConnectionTimedOut())  {
@@ -1250,6 +1276,10 @@ void loop() {
         programSelect.setButtonColorsToDefault();
         cmdSelect.setButtonColorsToDefault();
         extraButtons.setButtonColorsToDefault();
+        
+        AtemSwitcher.changeAuxState(3,4);
+        AtemSwitcher.sendAudioLevelNumbers(true);  // Make sure Audio Level data is sent
+        AtemSwitcher.setAudioLevelReadoutChannel(0);  // Master
       }
       
       
@@ -1263,6 +1293,10 @@ void loop() {
       AtemSwitcher.runLoop();  // Call here and there...
       
       smartSwitches();
+      
+      VUmeter();
+      
+      setTallyPreviewProgramOutputs();    // This will reflect inputs 1-8 Program tally on GPO 1-8
     }
   }
 }
@@ -1441,37 +1475,49 @@ void menuValues_printTrType(int sVal)  {
  ***********************************/
 void setButtonColors()  {
 
-    // Setting colors of PREVIEW input select buttons:
+    // Setting colors of 8 PREVIEW input select buttons:
     for (uint8_t i=1;i<=8;i++)  {
-      if (AtemSwitcher.getPreviewTally(i))  {
-        previewSelect.setButtonColor(i, 3);
-      } else {
-        previewSelect.setButtonColor(i, 5);   
-      }
-    }
-    
-    // Setting colors of PROGRAM input select buttons:
-    for (uint8_t i=1;i<=8;i++)  {
-      if (BUSselect==0)  {  // Normal: PROGRAM
+      if (BUSselect==5)  {    // Normal: Preview/Program
         if (AtemSwitcher.getProgramTally(i))  {
-          programSelect.setButtonColor(i, 2);
+          previewSelect.setButtonColor(i, 2);
+        } else if(AtemSwitcher.getPreviewTally(i)) {
+          previewSelect.setButtonColor(i, 3);
         } else {
-          programSelect.setButtonColor(i, 5);   
+          previewSelect.setButtonColor(i, 5);   
         }
-      } else if (BUSselect<=3)  {  // 1-3: AUX bus:
-        if (i==8?(AtemSwitcher.getAuxState(BUSselect)==16):(AtemSwitcher.getAuxState(BUSselect)==i))  {
-          programSelect.setButtonColor(i, 4);
+      } else if (BUSselect==0)  {  // Program directly
+        if (AtemSwitcher.getProgramTally(i))  {
+          previewSelect.setButtonColor(i, 2);
         } else {
-          programSelect.setButtonColor(i, 5);   
+          previewSelect.setButtonColor(i, 5);   
         }
-      } else if (BUSselect==10 || BUSselect==11)  {
+      } else if (BUSselect<=2)  {  // 1-2: AUX buses
+        if (i==4?(AtemSwitcher.getAuxState(BUSselect)==16):(AtemSwitcher.getAuxState(BUSselect)==i))  {  // On 4 we have the multiviewer - instead, put PROGRAM on AUX...
+          previewSelect.setButtonColor(i, 4);
+        } else {
+          previewSelect.setButtonColor(i, 5);   
+        }
+      } else if (BUSselect==10 || BUSselect==11)  {  // Media players
         if (AtemSwitcher.getMediaPlayerStill(BUSselect-9)==i)  {
-          programSelect.setButtonColor(i, 4);
+          previewSelect.setButtonColor(i, 4);
         } else {
-          programSelect.setButtonColor(i, 5);   
+          previewSelect.setButtonColor(i, 5);   
         }
       }       
     }
+
+    // Setting colors of PROGRAM input select buttons - they are used for AUX3 (what is shown on the screen). MONITOR:
+    // MV (input4), PREVIEW, PROGRAM, Server, AUX1, AUX2, ?, ?
+    programSelect.setButtonColor(1, AtemSwitcher.getAuxState(3)==4 ? 4 : 5);  // MV
+    programSelect.setButtonColor(2, AtemSwitcher.getAuxState(3)==17 ? 4 : 5);  // Preview
+    programSelect.setButtonColor(3, AtemSwitcher.getAuxState(3)==16 ? 4 : 5);  // PROGRAM
+    programSelect.setButtonColor(4, AtemSwitcher.getAuxState(3)==1 ? 4 : 5);  // Streaming computer
+    programSelect.setButtonColor(5, AtemSwitcher.getAuxState(3)==AtemSwitcher.getAuxState(1) ? 4 : 5);  // AUX1
+    programSelect.setButtonColor(6, AtemSwitcher.getAuxState(3)==AtemSwitcher.getAuxState(2) ? 4 : 5);  // AUX2
+    programSelect.setButtonColor(7, 0);
+    programSelect.setButtonColor(8, 0);
+
+    
     
       // The user button mode tells us, how the four user buttons should be programmed. This sets the colors to match the function:
     switch(userButtonMode)  {
@@ -1535,25 +1581,35 @@ void readingButtonsAndSendingCommands() {
 
     // Sending commands for PREVIEW input selection:
     uint8_t busSelection = previewSelect.buttonDownAll();
-    for (uint8_t i=1;i<=8;i++)  {
-      if (previewSelect.isButtonIn(i, busSelection))  { AtemSwitcher.changePreviewInput(i); }  
-    }
-
-    // Sending commands for PROGRAM input selection:
-    busSelection = programSelect.buttonDownAll();
-    if (BUSselect==0)  {
+    if (BUSselect==5)  {
       for (uint8_t i=1;i<=8;i++)  {
-        if (programSelect.isButtonIn(i, busSelection))  { AtemSwitcher.changeProgramInput(i); }
+        if (previewSelect.isButtonIn(i, busSelection))  { AtemSwitcher.changePreviewInput(i); }
       }
-    } else if (BUSselect<=3)  {
+    } else if (BUSselect==0)  {
       for (uint8_t i=1;i<=8;i++)  {
-        if (programSelect.isButtonIn(i, busSelection))  { AtemSwitcher.changeAuxState(BUSselect, i==8?16:i); }  // When selecting AUX bus, input 8 is mapped to PROGRAM instead
+        if (previewSelect.isButtonIn(i, busSelection))  { AtemSwitcher.changeProgramInput(i); }
+      }
+    } else if (BUSselect<=2)  {
+      for (uint8_t i=1;i<=8;i++)  {
+        if (previewSelect.isButtonIn(i, busSelection))  { AtemSwitcher.changeAuxState(BUSselect, i==8?16:i); }  // When selecting AUX bus, input 8 is mapped to PROGRAM instead
       }
     } else if (BUSselect==10 || BUSselect==11)  {
       for (uint8_t i=1;i<=8;i++)  {
-        if (programSelect.isButtonIn(i, busSelection))  { AtemSwitcher.mediaPlayerSelectSource(BUSselect-9, false, i); }
+        if (previewSelect.isButtonIn(i, busSelection))  { AtemSwitcher.mediaPlayerSelectSource(BUSselect-9, false, i); }
       }
     } 
+    
+
+    // Sending commands for PROGRAM input selection:
+    busSelection = programSelect.buttonDownAll();
+    if (programSelect.isButtonIn(1, busSelection))  { AtemSwitcher.changeAuxState(3,4); }    // MV
+    if (programSelect.isButtonIn(2, busSelection))  { AtemSwitcher.changeAuxState(3,17); }    // Preview
+    if (programSelect.isButtonIn(3, busSelection))  { AtemSwitcher.changeAuxState(3,16); }    // Program
+    if (programSelect.isButtonIn(4, busSelection))  { AtemSwitcher.changeAuxState(3,1); }    // Streaming Computer
+    if (programSelect.isButtonIn(5, busSelection))  { AtemSwitcher.changeAuxState(3,AtemSwitcher.getAuxState(1)); }    // AUX1
+    if (programSelect.isButtonIn(6, busSelection))  { AtemSwitcher.changeAuxState(3,AtemSwitcher.getAuxState(2)); }    // AUX1
+    
+    
   
       // "T-bar" slider:
     if (utils.uniDirectionalSlider_hasMoved())  {
@@ -1702,8 +1758,10 @@ void smartSwitches()  {
   uint8_t j = 0;
   if(buttons & (1 << j)) {
     BUSselect++;
-    if (BUSselect>3)  {
+    if (BUSselect>5)  {
       BUSselect=0;
+    } if (BUSselect>2)  {
+      BUSselect=5;
     }
   }
     // SmartSwitch 1 display content:
@@ -1716,7 +1774,7 @@ void smartSwitches()  {
         SmartSwitch.writeTextXY(BUTTON1, "1", 32-10, 24, TEXT_BACKGROUND | TEXT_REVERSE);
         SmartSwitch.writeTextXY(BUTTON1, "2", 32, 24, TEXT_BACKGROUND);
         SmartSwitch.writeTextXY(BUTTON1, "3", 32+10, 24, TEXT_BACKGROUND);
-        SmartSwitch.setButtonColor(2,0,0, 1<<j);
+        SmartSwitch.setButtonColor(1,1,2, 1<<j);
         SmartSwitch.updateScreen(1<<j);
        break;
        case 2:
@@ -1725,7 +1783,7 @@ void smartSwitches()  {
         SmartSwitch.writeTextXY(BUTTON1, "1", 32-10, 24, TEXT_BACKGROUND);
         SmartSwitch.writeTextXY(BUTTON1, "2", 32, 24, TEXT_BACKGROUND | TEXT_REVERSE);
         SmartSwitch.writeTextXY(BUTTON1, "3", 32+10, 24, TEXT_BACKGROUND);
-        SmartSwitch.setButtonColor(2,0,0, 1<<j);
+        SmartSwitch.setButtonColor(1,1,2, 1<<j);
         SmartSwitch.updateScreen(1<<j);
        break;
        case 3:
@@ -1734,7 +1792,14 @@ void smartSwitches()  {
         SmartSwitch.writeTextXY(BUTTON1, "1", 32-10, 24, TEXT_BACKGROUND);
         SmartSwitch.writeTextXY(BUTTON1, "2", 32, 24, TEXT_BACKGROUND);
         SmartSwitch.writeTextXY(BUTTON1, "3", 32+10, 24, TEXT_BACKGROUND | TEXT_REVERSE);
-        SmartSwitch.setButtonColor(2,0,0, 1<<j);
+        SmartSwitch.setButtonColor(1,1,2, 1<<j);
+        SmartSwitch.updateScreen(1<<j);
+       break;
+       case 5:
+        SmartSwitch.clearPixmap(1<<j);
+        //SmartSwitch.drawImage(BUTTON1, 0, -3, IMAGE_LEFT, SSS_PGMgfx);        
+        SmartSwitch.writeText(BUTTON1, "PREVIEW", 3, TEXT_CENTER | TEXT_BACKGROUND | TEXT_REVERSE);
+        SmartSwitch.setButtonColor(2,2,2, 1<<j);
         SmartSwitch.updateScreen(1<<j);
        break;
        case 10:
@@ -1753,7 +1818,7 @@ void smartSwitches()  {
         SmartSwitch.clearPixmap(1<<j);
         SmartSwitch.drawImage(BUTTON1, 0, -3, IMAGE_LEFT, SSS_PGMgfx);        
         SmartSwitch.writeText(BUTTON1, "PROGRAM", 3, TEXT_CENTER | TEXT_BACKGROUND | TEXT_REVERSE);
-        SmartSwitch.setButtonColor(2,2,2, 1<<j);
+        SmartSwitch.setButtonColor(2,0,0, 1<<j);
         SmartSwitch.updateScreen(1<<j);
        break;
        default:
@@ -1808,21 +1873,95 @@ void smartSwitches()  {
 }
 
 
-void powerOnScreen() {
-    // Touch Screen power-up. Should not affect touch screen solution where it is not wired up.
-    // Uses D4 to trigger the "on" signal (through a 15K res), first set it in Tri-state mode.
-    // Uses Analog pin A5 to detect from the LED voltage levels whether it is already on or not
-  int analogInputValue = analogRead(powerStatusDetectPin);
-  Serial << "Analog Read of PWRLED2: " << analogInputValue;
-  if (analogInputValue>700)  {  // 700 is the threshold value found by trying. If off, it's around 790, if on, it's around 650
-    Serial << " => Screen off, turning it on..." << "\n";
-    // Now, trying to turn the screen on:
-    digitalWrite(powerMgmPin,0);  // First, set the next output of D4 to low
-    pinMode(powerMgmPin, OUTPUT);  // Change D4 from an high impedance input to an output, effectively triggering a button press
-    delay(500);  // Wait a while.
-    pinMode(powerMgmPin, INPUT);  // Change D4 back to high impedance input.
-  } else {
-    Serial << " => Screen already turned on" << "\n";
+
+// db: 5xgreen, 2xyellow, 1xred: -48, -32, -24, -18, -15, -12, -9 , -6
+// meterThreshold = 32809,85 * 1,12^dB
+uint16_t meterThreshold[] = {142, 873, 2161, 4266, 6000, 8240, 11640, 16444};
+
+void VUmeter()  {
+  uint16_t leftValue = AtemSwitcher.getAudioLevels(0);
+  uint16_t rightValue = AtemSwitcher.getAudioLevels(1);
+  
+  for(uint8_t i=0; i<8; i++)  {
+    VUledDriver.setLEDDimmed(i,leftValue>meterThreshold[i]?100:0);
+  }  
+  for(uint8_t i=8; i<16; i++)  {
+    VUledDriver.setLEDDimmed(i,rightValue>meterThreshold[i-8]?100:0);
   }  
 }
+
+
+
+
+void setTallyPreviewProgramOutputs()  {
+   // Setting colors of input select buttons:
+  for (uint8_t i=1;i<=4;i++)  {
+    if (AtemSwitcher.getProgramTally(i))  {
+      GPIOboard.setOutput(i*2-1,HIGH);
+    }       
+    else {
+      GPIOboard.setOutput(i*2-1,LOW);
+    }
+
+    if (AtemSwitcher.getPreviewTally(i))  {
+      GPIOboard.setOutput(i*2,HIGH);
+    }       
+    else {
+      GPIOboard.setOutput(i*2,LOW);
+    }
+  }
+}
+
+
+
+void powerOnScreen() {
+  // Touch Screen power-up. Should not affect touch screen solution where it is not wired up.
+  // Uses D4 to trigger the "on" signal (through a 15K res), first set it in Tri-state mode.
+  // Uses Analog pin A5 to detect from the LED voltage levels whether it is already on or not
+  int analogInputValue = analogRead(powerStatusDetectPin);
+  //  Serial << "Analog Read of PWRLED2: " << analogInputValue;
+  /*
+Samples on various monitors:
+   (off) 830-670 (on)
+   (off) 860-700 (on)
+   (off) 870-710 (on)
+   (off) 830-670 (on)
+   => 770 is a reasonable threshold.
+   */
+  if (screenPower)  {
+    if (analogInputValue>770)  {
+      Serial << "Analog Read of PWRLED2: " << analogInputValue;
+      Serial << " => Screen off, turning it on..." << "\n";
+      // Now, trying to turn the screen on:
+      digitalWrite(powerMgmPin,0);  // First, set the next output of D4 to low
+      pinMode(powerMgmPin, OUTPUT);  // Change D4 from an high impedance input to an output, effectively triggering a button press
+      AtemSwitcher.delay(500);  // Wait a while.
+      pinMode(powerMgmPin, INPUT);  // Change D4 back to high impedance input.
+
+      // LCD panel:
+      backlightOn();
+    } 
+    else {
+      //    Serial << " => Screen already turned on" << "\n";
+    }  
+  } 
+  else {  // screenPower = false:
+    if (analogInputValue<770)  {
+      Serial << "Analog Read of PWRLED2: " << analogInputValue;
+      Serial << " => Screen on, turning it off..." << "\n";
+      // Now, trying to turn the screen on:
+      digitalWrite(powerMgmPin,0);  // First, set the next output of D4 to low
+      pinMode(powerMgmPin, OUTPUT);  // Change D4 from an high impedance input to an output, effectively triggering a button press
+      AtemSwitcher.delay(500);  // Wait a while.
+      pinMode(powerMgmPin, INPUT);  // Change D4 back to high impedance input.
+
+      // LCD panel:
+      backlightOff();
+    } 
+    else {
+      //    Serial << " => Screen already turned off" << "\n";
+    }  
+  }
+}
+
 

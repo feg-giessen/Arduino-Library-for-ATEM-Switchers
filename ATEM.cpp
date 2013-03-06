@@ -51,6 +51,8 @@ void ATEM::begin(const IPAddress ip, const uint16_t localPort){
 	
 	_serialOutput = false;
 	_isConnectingTime = 0;
+	
+	_ATEM_AMLv_channel=0;
 }
 
 /**
@@ -240,53 +242,73 @@ void ATEM::delay(const unsigned int delayTimeMillis)	{	// Responsible delay func
 }
 
 /**
+ * Reads from UDP channel to buffer. Will fill the buffer to the max or to the size of the current segment being parsed
+ * Returns false if there are no more bytes, otherwise true 
+ */
+bool ATEM::_readToPacketBuffer() {
+	uint8_t maxBytes = 96;
+	int remainingBytes = _cmdLength-8-_cmdPointer;
+
+	if (remainingBytes>0)	{
+		if (remainingBytes <= maxBytes)	{
+			_Udp.read(_packetBuffer, remainingBytes);
+			_cmdPointer+= remainingBytes;
+			return false;	// Returns false if finished.
+		} else {
+			_Udp.read(_packetBuffer, maxBytes);
+			_cmdPointer+= maxBytes;
+			return true;	// Returns true if there are still bytes to be read.
+		}
+	} else {
+		return false;
+	}
+}
+
+/**
  * If a package longer than a normal acknowledgement is received from the ATEM Switcher we must read through the contents.
  * Usually such a package contains updated state information about the mixer
  * Selected information is extracted in this function and transferred to internal variables in this library.
  */
 void ATEM::_parsePacket(uint16_t packetLength)	{
-		uint8_t idx;	// General reusable index usable for keyers, mediaplayer etc below.
+	 uint8_t idx;	// General reusable index usable for keyers, mediaplayer etc below.
 	
  		// If packet is more than an ACK packet (= if its longer than 12 bytes header), lets parse it:
-      uint16_t indexPointer = 12;
+      uint16_t indexPointer = 12;	// 12 bytes has already been read from the packet...
       while (indexPointer < packetLength)  {
 
         // Read the length of segment (first word):
-        _Udp.read(_packetBuffer, 2);
-        uint16_t cmdLength = word(0, _packetBuffer[1]);
-			// If length of segment fits into buffer, lets read it, otherwise throw an error:
-        if (cmdLength>2 && cmdLength<=96)  {
+        _Udp.read(_packetBuffer, 8);
+        _cmdLength = word(_packetBuffer[0], _packetBuffer[1]);
+		_cmdPointer = 0;
+        
+			// Get the "command string", basically this is the 4 char variable name in the ATEM memory holding the various state values of the system:
+        char cmdStr[] = { 
+          _packetBuffer[4], _packetBuffer[5], _packetBuffer[6], _packetBuffer[7], '\0'};
 
-          // Read the rest of the segment:
-          _Udp.read(_packetBuffer, cmdLength-2);
-
-          // Get the "command string", basically this is the 4 char variable name in the ATEM memory holding the various state values of the system:
-          char cmdStr[] = { 
-            _packetBuffer[-2+4], _packetBuffer[-2+5], _packetBuffer[-2+6], _packetBuffer[-2+7], '\0'                                                  };
+			// If length of segment larger than 8 (should always be...!)
+        if (_cmdLength>8)  {
+		  _readToPacketBuffer();
 
           // Extract the specific state information we like to know about:
           if(strcmp(cmdStr, "PrgI") == 0) {  // Program Bus status
-			_ATEM_PrgI = _packetBuffer[-2+8+1];
+			_ATEM_PrgI = _packetBuffer[1];
             if (_serialOutput) Serial.print(F("Program Bus: "));
             if (_serialOutput) Serial.println(_ATEM_PrgI, DEC);
           } else
           if(strcmp(cmdStr, "PrvI") == 0) {  // Preview Bus status
-			_ATEM_PrvI = _packetBuffer[-2+8+1];
+			_ATEM_PrvI = _packetBuffer[1];
             if (_serialOutput) Serial.print(F("Preview Bus: "));
-            if (_serialOutput) Serial.println(_packetBuffer[-2+8+1], DEC);
+            if (_serialOutput) Serial.println(_ATEM_PrvI, DEC);
           } else
           if(strcmp(cmdStr, "TlIn") == 0) {  // Tally status for inputs 1-8
-            uint8_t count = _packetBuffer[-2+8+1]; // Number of inputs
-              
-            if(count > 8) // Currently is only 8 inputs supported so make sure to read max 8.
-            {
+            uint8_t count = _packetBuffer[1]; // Number of inputs
+              // Currently is only 8 inputs supported so make sure to read max 8.
+            if(count > 8) {
               count = 8;
             }
-
-            // Inputs 1-8, bit 0 = Prg tally, bit 1 = Prv tally. Both can be set simultaneously.
-            for(uint8_t i = 0; i < count; ++i)
-            {
-              _ATEM_TlIn[i] = _packetBuffer[-2+8+2+i];
+            	// Inputs 1-8, bit 0 = Prg tally, bit 1 = Prv tally. Both can be set simultaneously.
+            for(uint8_t i = 0; i < count; ++i) {
+              _ATEM_TlIn[i] = _packetBuffer[2+i];
             }
 
             if (_serialOutput) Serial.println(F("Tally updated: "));
@@ -294,37 +316,37 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
           if(strcmp(cmdStr, "Time") == 0) {  // Time. What is this anyway?
 	      } else 
 	      if(strcmp(cmdStr, "TrPr") == 0) {  // Transition Preview
-			_ATEM_TrPr = _packetBuffer[-2+8+1] > 0 ? true : false;
+			_ATEM_TrPr = _packetBuffer[1] > 0 ? true : false;
             if (_serialOutput) Serial.print(F("Transition Preview: "));
             if (_serialOutput) Serial.println(_ATEM_TrPr, BIN);
           } else
 	      if(strcmp(cmdStr, "TrPs") == 0) {  // Transition Position
-			_ATEM_TrPs_frameCount = _packetBuffer[-2+8+2];	// Frames count down
-			_ATEM_TrPs_position = _packetBuffer[-2+8+4]*256 + _packetBuffer[-2+8+5];	// Position 0-1000
+			_ATEM_TrPs_frameCount = _packetBuffer[2];	// Frames count down
+			_ATEM_TrPs_position = _packetBuffer[4]*256 + _packetBuffer[5];	// Position 0-1000 - maybe more in later firmwares?
           } else
 	      if(strcmp(cmdStr, "TrSS") == 0) {  // Transition Style and Keyer on next transition
-			_ATEM_TrSS_KeyersOnNextTransition = _packetBuffer[-2+8+2] & B11111;	// Bit 0: Background; Bit 1-4: Key 1-4
+			_ATEM_TrSS_KeyersOnNextTransition = _packetBuffer[2] & B11111;	// Bit 0: Background; Bit 1-4: Key 1-4
             if (_serialOutput) Serial.print(F("Keyers on Next Transition: "));
             if (_serialOutput) Serial.println(_ATEM_TrSS_KeyersOnNextTransition, BIN);
 
-			_ATEM_TrSS_TransitionStyle = _packetBuffer[-2+8+1];
+			_ATEM_TrSS_TransitionStyle = _packetBuffer[1];
             if (_serialOutput) Serial.print(F("Transition Style: "));	// 0=MIX, 1=DIP, 2=WIPE, 3=DVE, 4=STING
             if (_serialOutput) Serial.println(_ATEM_TrSS_TransitionStyle, DEC);
           } else
 	      if(strcmp(cmdStr, "FtbS") == 0) {  // Fade To Black State
-			_ATEM_FtbS_state = _packetBuffer[-2+8+1]; // State of Fade To Black, 0 = off and 1 = activated
-			_ATEM_FtbS_frameCount = _packetBuffer[-2+8+2];	// Frames count down
+			_ATEM_FtbS_state = _packetBuffer[1]; // State of Fade To Black, 0 = off and 1 = activated
+			_ATEM_FtbS_frameCount = _packetBuffer[2];	// Frames count down
           } else
 	      if(strcmp(cmdStr, "FtbP") == 0) {  // Fade To Black - Positions(?) (Transition Time in frames for FTB): 0x01-0xFA
-			_ATEM_FtbP_time = _packetBuffer[-2+8+1];
+			_ATEM_FtbP_time = _packetBuffer[1];
           } else
 	      if(strcmp(cmdStr, "TMxP") == 0) {  // Mix Transition Position(?) (Transition Time in frames for Mix transitions.): 0x01-0xFA
-			_ATEM_TMxP_time = _packetBuffer[-2+8+1];
+			_ATEM_TMxP_time = _packetBuffer[1];
           } else
 	      if(strcmp(cmdStr, "DskS") == 0) {  // Downstream Keyer state. Also contains information about the frame count in case of "Auto"
-			idx = _packetBuffer[-2+8+0];
+			idx = _packetBuffer[0];
 			if (idx >=0 && idx <=1)	{
-				_ATEM_DskOn[idx] = _packetBuffer[-2+8+1] > 0 ? true : false;
+				_ATEM_DskOn[idx] = _packetBuffer[1] > 0 ? true : false;
 	            if (_serialOutput) Serial.print(F("Dsk Keyer "));
 	            if (_serialOutput) Serial.print(idx+1);
 	            if (_serialOutput) Serial.print(F(": "));
@@ -332,40 +354,40 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 			}
           } else
 	      if(strcmp(cmdStr, "DskP") == 0) {  // Downstream Keyer Tie
-			idx = _packetBuffer[-2+8+0];
+			idx = _packetBuffer[0];
 			if (idx >=0 && idx <=1)	{
-				_ATEM_DskTie[idx] = _packetBuffer[-2+8+1] > 0 ? true : false;
+				_ATEM_DskTie[idx] = _packetBuffer[1] > 0 ? true : false;
 	            if (_serialOutput) Serial.print(F("Dsk Keyer"));
 	            if (_serialOutput) Serial.print(idx+1);
 	            if (_serialOutput) Serial.print(F(" Tie: "));
 	            if (_serialOutput) Serial.println(_ATEM_DskTie[idx], BIN);
 			}
           } else
-		  if(strcmp(cmdStr, "KeOn") == 0) {  // Upstead Keyer on
-				idx = _packetBuffer[-2+8+1];
-				if (idx >=0 && idx <=3)	{
-					_ATEM_KeOn[idx] = _packetBuffer[-2+8+2] > 0 ? true : false;
-		            if (_serialOutput) Serial.print(F("Upstream Keyer "));
-		            if (_serialOutput) Serial.print(idx+1);
-		            if (_serialOutput) Serial.print(F(": "));
-		            if (_serialOutput) Serial.println(_ATEM_KeOn[idx], BIN);
-				}
-		    } else 
+		  if(strcmp(cmdStr, "KeOn") == 0) {  // Upstream Keyer on
+			idx = _packetBuffer[1];
+			if (idx >=0 && idx <=3)	{
+				_ATEM_KeOn[idx] = _packetBuffer[2] > 0 ? true : false;
+	            if (_serialOutput) Serial.print(F("Upstream Keyer "));
+	            if (_serialOutput) Serial.print(idx+1);
+	            if (_serialOutput) Serial.print(F(": "));
+	            if (_serialOutput) Serial.println(_ATEM_KeOn[idx], BIN);
+			}
+	      } else 
 		  if(strcmp(cmdStr, "ColV") == 0) {  // Color Generator Change
 				// Todo: Relatively easy: 8 bytes, first is the color generator, the last 6 is hsl words
-		    } else 
+		  } else 
 		  if(strcmp(cmdStr, "MPCE") == 0) {  // Media Player Clip Enable
-				idx = _packetBuffer[-2+8+0];
+				idx = _packetBuffer[0];
 				if (idx >=0 && idx <=1)	{
-					_ATEM_MPType[idx] = _packetBuffer[-2+8+1];
-					_ATEM_MPStill[idx] = _packetBuffer[-2+8+2];
-					_ATEM_MPClip[idx] = _packetBuffer[-2+8+3];
+					_ATEM_MPType[idx] = _packetBuffer[1];
+					_ATEM_MPStill[idx] = _packetBuffer[2];
+					_ATEM_MPClip[idx] = _packetBuffer[3];
 				}
-		    } else 
+		  } else 
 		  if(strcmp(cmdStr, "AuxS") == 0) {  // Aux Output Source
-				uint8_t auxInput = _packetBuffer[-2+8+0];
+				uint8_t auxInput = _packetBuffer[0];
 				if (auxInput >=0 && auxInput <=2)	{
-					_ATEM_AuxS[auxInput] = _packetBuffer[-2+8+1];
+					_ATEM_AuxS[auxInput] = _packetBuffer[1];
 		            if (_serialOutput) Serial.print(F("Aux "));
 		            if (_serialOutput) Serial.print(auxInput+1);
 		            if (_serialOutput) Serial.print(F(" Output: "));
@@ -374,31 +396,47 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 
 		    } else 
 		    if(strcmp(cmdStr, "_ver") == 0) {  // Firmware version
-				_ATEM_ver_m = _packetBuffer[-2+8+1];	// Firmware version, "left of decimal point" (what is that called anyway?)
-				_ATEM_ver_l = _packetBuffer[-2+8+3];	// Firmware version, decimals ("right of decimal point")
+				_ATEM_ver_m = _packetBuffer[1];	// Firmware version, "left of decimal point" (what is that called anyway?)
+				_ATEM_ver_l = _packetBuffer[3];	// Firmware version, decimals ("right of decimal point")
 		    } else 
 			if(strcmp(cmdStr, "_pin") == 0) {  // Name
 				for(uint8_t i=0;i<16;i++)	{
-					_ATEM_pin[i] = _packetBuffer[-2+8+i];
+					_ATEM_pin[i] = _packetBuffer[i];
 				}
 				_ATEM_pin[16] = 0;	// Termination
 		    } else 
 			if(strcmp(cmdStr, "AMTl") == 0) {  // Audio Monitor Tally (on/off settings)
 				// Same system as for video: "TlIn"... just implement when time.
 		    } else 
-				// Note for future reveng: For master control, volume at least comes back in "AMMO" (CAMM is the command code.)
+			// Note for future reveng: For master control, volume at least comes back in "AMMO" (CAMM is the command code.)
 			if(strcmp(cmdStr, "AMIP") == 0) {  // Audio Monitor Input P... (state) (On, Off, AFV)
 		/*		Serial.print("Audio Channel: ");
-				Serial.println(_packetBuffer[-2+8+0]);	// _packetBuffer[-2+8+2] seems to be input number (one higher...)
+				Serial.println(_packetBuffer[0]);	// _packetBuffer[2] seems to be input number (one higher...)
 				Serial.print(" - State: ");
-				Serial.println(_packetBuffer[-2+8+3] == 0x01 ? "ON" : (_packetBuffer[-2+8+3] == 0x02 ? "AFV" : (_packetBuffer[-2+8+3] > 0 ? "???" : "OFF")));
+				Serial.println(_packetBuffer[3] == 0x01 ? "ON" : (_packetBuffer[3] == 0x02 ? "AFV" : (_packetBuffer[3] > 0 ? "???" : "OFF")));
 				Serial.print(" - Volume: ");
-				Serial.print((uint16_t)_packetBuffer[-2+8+4]*256+_packetBuffer[-2+8+5]);
+				Serial.print((uint16_t)_packetBuffer[4]*256+_packetBuffer[5]);
 				Serial.print("/");
-				Serial.println((uint16_t)_packetBuffer[-2+8+6]*256+_packetBuffer[-2+8+7]);
+				Serial.println((uint16_t)_packetBuffer[6]*256+_packetBuffer[7]);
 		   */ } else 
+			if(strcmp(cmdStr, "AMLv") == 0) {  // Audio Monitor Levels
+				uint16_t readingOffset = 4+(_ATEM_AMLv_channel << 4);	// *16
+				while (readingOffset+4 > 96)	{
+					readingOffset-=96;
+					_readToPacketBuffer();
+				}
+				_ATEM_AMLv[0] = ((uint16_t)(_packetBuffer[readingOffset+1]<<8) | _packetBuffer[readingOffset+2]);	//drops the 8 least sign. bits! -> 15 bit resolution for VU purposes. fine enough.
+
+				readingOffset+=4;
+
+				while (readingOffset+4 > 96)	{
+					readingOffset-=96;
+					_readToPacketBuffer();
+				}
+				_ATEM_AMLv[1] = ((uint16_t)(_packetBuffer[readingOffset+1]<<8) | _packetBuffer[readingOffset+2]);	//drops the 8 least sign. bits! -> 15 bit resolution for VU purposes. fine enough.
+			} else 
 			if(strcmp(cmdStr, "VidM") == 0) {  // Video format (SD, HD, framerate etc.)
-				_ATEM_VidM = _packetBuffer[-2+8+0];	
+				_ATEM_VidM = _packetBuffer[0];	
 		    } else {
 			
 		
@@ -410,24 +448,20 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 					Serial.print(cmdStr);
 					Serial.print(" : ");
 				}
-				for(uint8_t a=(-2+8);a<cmdLength-2;a++)	{
+				for(uint8_t a=(-2+8);a<_cmdLength-2;a++)	{
 	            	if (_serialOutput) Serial.print((uint8_t)_packetBuffer[a], HEX);
 	            	if (_serialOutput) Serial.print(" ");
 				}
 				if (_serialOutput) Serial.println("");
 	        */
 			}
-	      
-          indexPointer+=cmdLength;
+			
+			// Empty, if long packet and not read yet:
+	      while (_readToPacketBuffer())	{}
+	
+          indexPointer+=_cmdLength;
         } else { 
-          // Error, just get out of the loop ASAP:
-/*          if (_serialOutput) Serial.print(("ERROR: Command Size mismatch: "));
-          if (_serialOutput) Serial.println(cmdLength, DEC);
-          if (_serialOutput) Serial.print((" - - Index Pointer: "));
-          if (_serialOutput) Serial.println(indexPointer, DEC);
-          if (_serialOutput) Serial.print((" - - Packet Length: "));
-          if (_serialOutput) Serial.println(packetLength, DEC);
-  */       indexPointer = 2000;
+      		indexPointer = 2000;
           
 			// Flushing the buffer:
 			// TODO: Other way? _Udp.flush() ??
@@ -713,7 +747,10 @@ uint8_t ATEM::getMediaPlayerClip(uint8_t mediaPlayer)  {
 	}
 	return 0;
 }
-
+uint16_t ATEM::getAudioLevels(uint8_t channel)	{
+		// channel can be 0 (L) or 1 (R)
+	return _ATEM_AMLv[channel];
+}
 
 
 
@@ -925,6 +962,20 @@ void ATEM::changeDVESettingsTemp_RunKeyFrame(uint8_t runType)	{	// runType: 1=A,
   		uint8_t commandBytes[8] = {0x02, 0x00, 0x00, 0x02, 0x00, runType, 0xff, 0xff};
   		_sendCommandPacket("RFlK", commandBytes, 8);
 }
+void ATEM::changeKeyerMask(uint16_t topMask, uint16_t bottomMask, uint16_t leftMask, uint16_t rightMask)	{
+		// In "B11110", bits are (from right to left): 0=?, 1=topMask, 2=bottomMask, 3=leftMask, 4=rightMask
+  		uint8_t commandBytes[12] = {B11110, 0x00, 0x00, 0x00, highByte(topMask), lowByte(topMask), highByte(bottomMask), lowByte(bottomMask), highByte(leftMask), lowByte(leftMask), highByte(rightMask), lowByte(rightMask)};
+  		_sendCommandPacket("CKMs", commandBytes, 12);
+}
+
+void ATEM::changeDownstreamKeyMask(uint8_t keyer, uint16_t topMask, uint16_t bottomMask, uint16_t leftMask, uint16_t rightMask)	{
+		// In "B11110", bits are (from right to left): 0=?, 1=topMask, 2=bottomMask, 3=leftMask, 4=rightMask
+		if (keyer>=1 && keyer<=2)	{
+  			uint8_t commandBytes[12] = {B11110, keyer-1, 0x00, 0x00, highByte(topMask), lowByte(topMask), highByte(bottomMask), lowByte(bottomMask), highByte(leftMask), lowByte(leftMask), highByte(rightMask), lowByte(rightMask)};
+  			_sendCommandPacket("CDsM", commandBytes, 12);
+		}
+}
+
 
 
 // Statuskode retur: KeBP, data byte 7 derefter er fill source, databyte 8 er key source, data byte 2 er upstr. keyer 1-4 (0-3)
@@ -1009,4 +1060,43 @@ void ATEM::changeAudioChannelVolume(uint8_t channelNumber, uint16_t volume)	{
 //  _packetBuffer[11] = 0xac;	// ??
 
   _sendPacketBufferCmdData("CAMI", 12);	// Reflected back from ATEM as "AMIP"
+}
+
+void ATEM::sendAudioLevelNumbers(bool enable)	{
+  _wipeCleanPacketBuffer();
+  _packetBuffer[0] = enable ? 1 : 0;
+  _sendPacketBufferCmdData("SALN", 4);
+}
+void ATEM::setAudioLevelReadoutChannel(uint8_t AMLv)	{
+				/*
+				Channels on an 1M/E: (16 byte segments:)
+				0: MASTER
+				1: (Monitor?)
+				2-9: HDMI1 - SDI8
+				10: MP1
+				11: MP2
+				12: EXT
+				
+Values:
+FCP			HyperDeck	ATEM			Value
+Output		Studio 		Input			in
+Level:		Playback:	Colors:			Protocol:
+
+0 			red			red				32767
+-3 			red			red				23228
+-6 			red/yellow	red				16444
+-9 			yellow		red/yellow		11640
+-12 		yellow		yellow			8240
+-18 		green		yellow/green	4130
+-24			green		green			2070
+-42			green		green			260				
+
+
+(Values = 32809,85 * 1,12^dB (trendline based on numbers above))
+(HyperDeck Studio: red=>yellow @ -6db, yellow=>green @ -15db (assumed))
+(ATEM: red=>yellow @ -9db, yellow=>green @ -20db)
+(ATEM Input registered the exact same level values, FCP had been writing to the ProRes 422 file.)				
+				
+				*/
+	_ATEM_AMLv_channel = AMLv;	// Should check that it's in range 0-12
 }

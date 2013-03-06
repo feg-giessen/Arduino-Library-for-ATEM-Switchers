@@ -34,12 +34,21 @@ void setup() {
   // *********************************
   // INITIALIZE EEPROM memory:
   // *********************************
-  // EEPROM MEMORY:
+  // EEPROM MEMORY, Official list:
   // 0-1:  Initialization check
   // 2-5:  Arduino IP
   // 6-9:  ATEM IP
   // 10-16: Arduino MAC address (6+1 byte)
   // 17: Reboot counter
+  // 20-24: 1st Robotic Camera
+  // 25-29: 2nd Robotic Camera
+  // 30-34: 3rd Robotic Camera
+  // 35-39: 4th Robotic Camera
+  // 40-44: 2nd ATEM (ATEM::ConfigEthernetAddressesExtended)
+  // 45-49: Videohub (ATEM::ConfigEthernetAddressesExtended)
+  // 50-66: TouchScreen Calibration (SkaarhojUtils::Touch_Calibrate)
+  // 200-:  User defined.
+  
   
   // Set these random values so this initialization is only run once! 
   // These values confirm that Device IP and ATEM IP has been set at some point (they don't have checksums)

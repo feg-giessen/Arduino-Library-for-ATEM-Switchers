@@ -410,6 +410,29 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 		    } else 
 			// Note for future reveng: For master control, volume at least comes back in "AMMO" (CAMM is the command code.)
 			if(strcmp(cmdStr, "AMIP") == 0) {  // Audio Monitor Input P... (state) (On, Off, AFV)
+				if (_packetBuffer[0]<13)	{
+					_ATEM_AudioChannelMode[_packetBuffer[0]]  = _packetBuffer[3];
+				}
+/*				for(uint8_t a=0;a<_cmdLength-8;a++)	{
+	            	if (_serialOutput) Serial.print((uint8_t)_packetBuffer[a], HEX);
+	            	if (_serialOutput) Serial.print(" ");
+				}
+				if (_serialOutput) Serial.println("");				
+*/				
+/*				1M/E:
+					0: MASTER
+					1: (Monitor?)
+					2-9: HDMI1 - SDI8
+					10: MP1
+					11: MP2
+					12: EXT
+				
+				TVS:
+					0: MASTER
+					1: (Monitor?)
+					2-7: INPUT1-6 (HDMI - HDMI - HDMI/SDI - HDMI/SDI - SDI - SDI)
+					8: EXT
+				*/
 		/*		Serial.print("Audio Channel: ");
 				Serial.println(_packetBuffer[0]);	// _packetBuffer[2] seems to be input number (one higher...)
 				Serial.print(" - State: ");
@@ -751,7 +774,17 @@ uint16_t ATEM::getAudioLevels(uint8_t channel)	{
 		// channel can be 0 (L) or 1 (R)
 	return _ATEM_AMLv[channel];
 }
-
+uint8_t ATEM::getAudioChannelMode(uint8_t channelNumber)	{
+	if (channelNumber<13)	{
+/*		0: MASTER
+		1: (Monitor?)
+		2-9: HDMI1 - SDI8
+		10: MP1
+		11: MP2
+		12: EXT*/
+		return _ATEM_AudioChannelMode[channelNumber];
+	}
+}
 
 
 /********************************
@@ -1007,7 +1040,7 @@ void ATEM::changeAudioChannelMode(uint8_t channelNumber, uint8_t mode)	{	// Mode
 	  _packetBuffer[1] = channelNumber;	// Input 1-8 = channel 0-7(!), Media Player 1+2 = channel 8-9, Ext = channel 10 (For 1M/E!)
 	  _packetBuffer[2] = mode;	// 0=Off, 1=On, 2=AFV
 	  _packetBuffer[3] = 0x03;	
-	  _packetBuffer[9] = mode>0 ? 1 : 0;	// This seems to indicate whether the command turned it on or off...
+	  _packetBuffer[9] = mode>0 ? 1 : 0;	// This seems to indicate whether the command turned it on or off... (I think this is wrong now!)
 	  _sendPacketBufferCmdData("CAMI", 12);	// Reflected back from ATEM as "AMIP"
   }
 }
@@ -1038,10 +1071,12 @@ void ATEM::changeAudioChannelVolume(uint8_t channelNumber, uint16_t volume)	{
 
 	*/
 
+// CAMI command structure:  	CAMI    [01=buttons, 02=vol, 04=pan (toggle bits)] - [input number, 0-…] - [buttons] - [buttons] - [vol] - [vol] - [pan] - [pan]
+// CAMM: 01:de:80:00:e4:10:ff:bf (master) [volume is 80:00]
 
   _wipeCleanPacketBuffer();
-  _packetBuffer[0] = 0x06;	// Setting Level
-  _packetBuffer[1] = channelNumber;	// Input 1-8 = channel 0-7(!), Media Player 1+2 = channel 8-9, Ext = channel 10 (For 1M/E!)
+  _packetBuffer[0] = 0x02;	// Setting Volume Level
+  _packetBuffer[1] = channelNumber;	// Input 1-8 = channel 0-7(!), Media Player 1+2 = channel 8-9, Ext = channel 10 (For 1M/E!)		///		Input 1-6 = channel 0-5(!), Ext = channel 6 (For TVS!)
 //  _packetBuffer[2] = 0xff;	// ??
 //  _packetBuffer[3] = 0xbf;	// ??
 
@@ -1051,17 +1086,34 @@ void ATEM::changeAudioChannelVolume(uint8_t channelNumber, uint16_t volume)	{
 
   _packetBuffer[4] = volume/256;	
   _packetBuffer[5] = volume%256;	
-  _packetBuffer[6] = volume/256;	
-  _packetBuffer[7] = volume%256;	
+//  _packetBuffer[6] = volume/256;	
+//  _packetBuffer[7] = volume%256;	
 
 //  _packetBuffer[8] = 0x57;	// ??
 //  _packetBuffer[9] = 0x84;	// ??
 //  _packetBuffer[10] = 0xb3;	// ??
 //  _packetBuffer[11] = 0xac;	// ??
 
-  _sendPacketBufferCmdData("CAMI", 12);	// Reflected back from ATEM as "AMIP"
+  _sendPacketBufferCmdData("CAMI", 8);
 }
 
+void ATEM::changeAudioMasterVolume(uint16_t volume)	{
+
+// CAMI command structure:  	CAMI    [01=but, 02=vol, 04=pan (toggle bits)] - [input number, 0-…] - [buttons] - [buttons] - [vol] - [vol] - [pan] - [pan]
+// CAMM: 01:de:80:00:e4:10:ff:bf (master) [volume is 80:00]
+
+  _wipeCleanPacketBuffer();
+  _packetBuffer[0] = 0x01;
+
+	if (volume > 0xff65)	{
+		volume = 0xff65;
+	}
+
+  _packetBuffer[2] = volume/256;	
+  _packetBuffer[3] = volume%256;	
+
+  _sendPacketBufferCmdData("CAMM", 8);
+}
 void ATEM::sendAudioLevelNumbers(bool enable)	{
   _wipeCleanPacketBuffer();
   _packetBuffer[0] = enable ? 1 : 0;

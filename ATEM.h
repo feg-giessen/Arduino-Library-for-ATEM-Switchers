@@ -81,7 +81,7 @@ class ATEM
 	uint8_t _ATEM_MPClip[2];	// Clip number (if MPType==1)
 	uint16_t _ATEM_AMLv[2];	// Audio Meter Levels for a specific channel, see _ATEM_AMLv_channel
 	uint8_t _ATEM_AMLv_channel;		// The channel to read audio levels for.
-
+	uint8_t _ATEM_AudioChannelMode[13];	// Audio channel mode (ON=1, AFV=2, OFF=0/other)
 	
 	
   public:
@@ -140,7 +140,7 @@ class ATEM
 	uint8_t getMediaPlayerStill(uint8_t mediaPlayer);
 	uint8_t getMediaPlayerClip(uint8_t mediaPlayer);
 	uint16_t getAudioLevels(uint8_t channel);
-
+	uint8_t getAudioChannelMode(uint8_t channelNumber);
 
 /********************************
  * ATEM Switcher Change methods
@@ -181,6 +181,7 @@ class ATEM
 	
 	void changeAudioChannelMode(uint8_t channelNumber, uint8_t mode);
 	void changeAudioChannelVolume(uint8_t channelNumber, uint16_t volume);
+	void changeAudioMasterVolume(uint16_t volume);
 	void sendAudioLevelNumbers(bool enable);
 	void setAudioLevelReadoutChannel(uint8_t AMLv);
 };

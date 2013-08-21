@@ -314,7 +314,15 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
             if (_serialOutput) Serial.println(F("Tally updated: "));
           } else 
           if(strcmp(cmdStr, "Time") == 0) {  // Time. What is this anyway?
-	      } else 
+		/*	Serial.print(_packetBuffer[0]);
+			Serial.print(':');
+			Serial.print(_packetBuffer[1]);
+			Serial.print(':');
+			Serial.print(_packetBuffer[2]);
+			Serial.print(':');
+			Serial.print(_packetBuffer[3]);
+			Serial.println();
+	      */} else 
 	      if(strcmp(cmdStr, "TrPr") == 0) {  // Transition Preview
 			_ATEM_TrPr = _packetBuffer[1] > 0 ? true : false;
             if (_serialOutput) Serial.print(F("Transition Preview: "));
@@ -334,8 +342,12 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
             if (_serialOutput) Serial.println(_ATEM_TrSS_TransitionStyle, DEC);
           } else
 	      if(strcmp(cmdStr, "FtbS") == 0) {  // Fade To Black State
-			_ATEM_FtbS_state = _packetBuffer[1]; // State of Fade To Black, 0 = off and 1 = activated
-			_ATEM_FtbS_frameCount = _packetBuffer[2];	// Frames count down
+			_ATEM_FtbS_state = _packetBuffer[2]; // State of Fade To Black, 0 = off and 1 = activated
+			_ATEM_FtbS_frameCount = _packetBuffer[3];	// Frames count down
+            if (_serialOutput) Serial.print(F("FTB:"));
+            if (_serialOutput) Serial.print(_ATEM_FtbS_state);
+            if (_serialOutput) Serial.print(F("/"));
+            if (_serialOutput) Serial.println(_ATEM_FtbS_frameCount);
           } else
 	      if(strcmp(cmdStr, "FtbP") == 0) {  // Fade To Black - Positions(?) (Transition Time in frames for FTB): 0x01-0xFA
 			_ATEM_FtbP_time = _packetBuffer[1];
@@ -1028,8 +1040,17 @@ void ATEM::changeDownstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber)	{
 	if (keyer>=1 && keyer<=2)	{	// Todo: Should match available keyers depending on model?
 	  	// TODO: Validate that input number exists on current model!
 		// 0-15 on 1M/E
-		uint8_t commandBytes[4] = {0, keyer-1, inputNumber, 0};
+		uint8_t commandBytes[4] = {keyer-1, inputNumber, 0, 0};
 		_sendCommandPacket("CDsF", commandBytes, 4);
+	}
+}
+
+void ATEM::changeDownstreamKeyKeySource(uint8_t keyer, uint8_t inputNumber)	{
+	if (keyer>=1 && keyer<=2)	{	// Todo: Should match available keyers depending on model?
+	  	// TODO: Validate that input number exists on current model!
+		// 0-15 on 1M/E
+		uint8_t commandBytes[4] = {keyer-1, inputNumber, 0, 0};
+		_sendCommandPacket("CDsC", commandBytes, 4);
 	}
 }
 

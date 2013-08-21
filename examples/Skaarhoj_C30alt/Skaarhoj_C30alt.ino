@@ -155,7 +155,7 @@ void loop() {
       AtemOnline = true;
       Serial << F("Turning on buttons\n");
 
-      buttons.setDefaultColor(5);  // Dimmed by default
+      buttons.setDefaultColor(0);  // Dimmed by default
       buttons.setButtonColorsToDefault();
     }
 

@@ -174,6 +174,7 @@ class ATEM
 	
 	void changeUpstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber);
 	void changeDownstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber);
+	void changeDownstreamKeyKeySource(uint8_t keyer, uint8_t inputNumber);
 	void changeDVESettingsTemp_RunKeyFrame(uint8_t runType);
 	void changeDVESettingsTemp_Rate(uint8_t rateFrames);
 	void changeKeyerMask(uint16_t topMask, uint16_t bottomMask, uint16_t leftMask, uint16_t rightMask);

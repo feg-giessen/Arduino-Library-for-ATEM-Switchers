@@ -423,14 +423,18 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 			// Note for future reveng: For master control, volume at least comes back in "AMMO" (CAMM is the command code.)
 			if(strcmp(cmdStr, "AMIP") == 0) {  // Audio Monitor Input P... (state) (On, Off, AFV)
 				if (_packetBuffer[0]<13)	{
-					_ATEM_AudioChannelMode[_packetBuffer[0]]  = _packetBuffer[3];
+					_ATEM_AudioChannelMode[_packetBuffer[0]]  = _packetBuffer[6];	
+					// 0 = Channel
+					// 6 = On/Off/AFV
+					// 10+11 = Balance (0xD8F0 - 0x0000 - 0x2710)
+					// 8+9 = Volume (0x0020 - 0xFF65)
 				}
-/*				for(uint8_t a=0;a<_cmdLength-8;a++)	{
-	            	if (_serialOutput) Serial.print((uint8_t)_packetBuffer[a], HEX);
-	            	if (_serialOutput) Serial.print(" ");
+	/*			for(uint8_t a=0;a<_cmdLength-8;a++)	{
+	            	Serial.print((uint8_t)_packetBuffer[a], HEX);
+	            	Serial.print(" ");
 				}
-				if (_serialOutput) Serial.println("");				
-*/				
+				Serial.println("");				
+	*/			
 /*				1M/E:
 					0: MASTER
 					1: (Monitor?)
@@ -1061,8 +1065,7 @@ void ATEM::changeAudioChannelMode(uint8_t channelNumber, uint8_t mode)	{	// Mode
 	  _packetBuffer[1] = channelNumber;	// Input 1-8 = channel 0-7(!), Media Player 1+2 = channel 8-9, Ext = channel 10 (For 1M/E!)
 	  _packetBuffer[2] = mode;	// 0=Off, 1=On, 2=AFV
 	  _packetBuffer[3] = 0x03;	
-	  _packetBuffer[9] = mode>0 ? 1 : 0;	// This seems to indicate whether the command turned it on or off... (I think this is wrong now!)
-	  _sendPacketBufferCmdData("CAMI", 12);	// Reflected back from ATEM as "AMIP"
+	  _sendPacketBufferCmdData("CAMI", 8);	// Reflected back from ATEM as "AMIP"
   }
 }
 void ATEM::changeAudioChannelVolume(uint8_t channelNumber, uint16_t volume)	{

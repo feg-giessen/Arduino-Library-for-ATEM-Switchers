@@ -171,6 +171,7 @@ class ATEM
 
 	void changeSwitcherVideoFormat(uint8_t format);
 	void changeDVESettingsTemp(unsigned long Xpos,unsigned long Ypos,unsigned long Xsize,unsigned long Ysize);
+	void changeDVEMaskTemp(unsigned long top,unsigned long bottom,unsigned long left,unsigned long right);
 	
 	void changeUpstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber);
 	void changeDownstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber);

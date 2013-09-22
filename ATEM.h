@@ -174,6 +174,8 @@ class ATEM
 	void changeDVEMaskTemp(unsigned long top,unsigned long bottom,unsigned long left,unsigned long right);
 	
 	void changeUpstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber);
+	void changeUpstreamKeyBlending(uint8_t keyer, bool preMultipliedAlpha, uint16_t clip, uint16_t gain, bool invKey);	
+	void changeDownstreamKeyBlending(uint8_t keyer, bool preMultipliedAlpha, uint16_t clip, uint16_t gain, bool invKey);
 	void changeDownstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber);
 	void changeDownstreamKeyKeySource(uint8_t keyer, uint8_t inputNumber);
 	void changeDVESettingsTemp_RunKeyFrame(uint8_t runType);

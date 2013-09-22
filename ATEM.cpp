@@ -1030,14 +1030,28 @@ void ATEM::changeDownstreamKeyMask(uint8_t keyer, uint16_t topMask, uint16_t bot
 
 
 
-// Statuskode retur: KeBP, data byte 7 derefter er fill source, databyte 8 er key source, data byte 2 er upstr. keyer 1-4 (0-3)
-// Key source command er : CKeC - og ellers ens med...
 void ATEM::changeUpstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber)	{
 	if (keyer>=1 && keyer<=4)	{	// Todo: Should match available keyers depending on model?
 	  	// TODO: Validate that input number exists on current model!
 		// 0-15 on 1M/E
 		uint8_t commandBytes[4] = {0, keyer-1, inputNumber, 0};
 		_sendCommandPacket("CKeF", commandBytes, 4);
+	}
+}
+
+// TODO: ONLY clip works right now! there is a bug...
+void ATEM::changeUpstreamKeyBlending(uint8_t keyer, bool preMultipliedAlpha, uint16_t clip, uint16_t gain, bool invKey)	{
+	if (keyer>=1 && keyer<=4)	{	// Todo: Should match available keyers depending on model?
+		uint8_t commandBytes[12] = {0x02, keyer-1, 0, preMultipliedAlpha?1:0, highByte(clip), lowByte(clip), highByte(gain), lowByte(gain), invKey?1:0, 0, 0, 0};
+		_sendCommandPacket("CKLm", commandBytes, 12);
+	}
+}
+
+// TODO: ONLY clip works right now! there is a bug...
+void ATEM::changeDownstreamKeyBlending(uint8_t keyer, bool preMultipliedAlpha, uint16_t clip, uint16_t gain, bool invKey)	{
+	if (keyer>=1 && keyer<=4)	{	// Todo: Should match available keyers depending on model?
+		uint8_t commandBytes[12] = {0x02, keyer-1, preMultipliedAlpha?1:0, 0, highByte(clip), lowByte(clip), highByte(gain), lowByte(gain), invKey?1:0, 0, 0, 0};
+		_sendCommandPacket("CDsG", commandBytes, 12);
 	}
 }
 

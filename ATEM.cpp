@@ -310,16 +310,16 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
           } else
           if(strcmp(cmdStr, "TlIn") == 0) {  // Tally status for inputs 1-8
             uint8_t count = _packetBuffer[1]; // Number of inputs
-              // Currently is only 8 inputs supported so make sure to read max 8.
-            if(count > 8) {
-              count = 8;
+              // 16 inputs supported so make sure to read max 16.
+            if(count > 16) {
+              count = 16;
             }
-            	// Inputs 1-8, bit 0 = Prg tally, bit 1 = Prv tally. Both can be set simultaneously.
+            	// Inputs 1-16, bit 0 = Prg tally, bit 1 = Prv tally. Both can be set simultaneously.
+            if (_serialOutput) Serial.println(F("Tally updated: "));
             for(uint8_t i = 0; i < count; ++i) {
               _ATEM_TlIn[i] = _packetBuffer[2+i];
             }
 
-            if (_serialOutput) Serial.println(F("Tally updated: "));
           } else 
           if(strcmp(cmdStr, "Time") == 0) {  // Time. What is this anyway?
 		/*	Serial.print(_packetBuffer[0]);
@@ -730,8 +730,8 @@ boolean ATEM::getUpstreamKeyerStatus(uint8_t inputNumber) {
 	}
 	return false;
 }
-boolean ATEM::getUpstreamKeyerOnNextTransitionStatus(uint8_t inputNumber) {
-	if (inputNumber>=1 && inputNumber<=4)	{
+boolean ATEM::getUpstreamKeyerOnNextTransitionStatus(uint8_t inputNumber) {	// input 0 = background
+	if (inputNumber>=0 && inputNumber<=4)	{
 			// Notice: the first bit is set for the "background", not valid.
 		return (_ATEM_TrSS_KeyersOnNextTransition & (0x01 << inputNumber)) ? true : false;
 	}
@@ -911,15 +911,16 @@ void ATEM::changeUpstreamKeyOn(uint8_t keyer, bool state)	{
 	  _sendPacketBufferCmdData("CKOn", 4);	// Reflected back from ATEM in "KeOn"
 	}
 }
-void ATEM::changeUpstreamKeyNextTransition(uint8_t keyer, bool state)	{	// Not supporting "Background"
-	if (keyer>=1 && keyer<=4)	{	// Todo: Should match available keyers depending on model?
+void ATEM::changeUpstreamKeyNextTransition(uint8_t keyer, bool state)	{	// Supporting "Background" by "0"
+	if (keyer>=0 && keyer<=4)	{	// Todo: Should match available keyers depending on model?
 		uint8_t stateValue = _ATEM_TrSS_KeyersOnNextTransition;
 		if (state)	{
-			stateValue = stateValue | (B10 << (keyer-1));
+			stateValue = stateValue | (B1 << keyer);
 		} else {
-			stateValue = stateValue & (~(B10 << (keyer-1)));
+			stateValue = stateValue & (~(B1 << keyer));
 		}
 				// TODO: Requires internal storage of state here so we can preserve all other states when changing the one we want to change.
+					// Below: Byte 2 is which ME (1 or 2):
 		uint8_t commandBytes[4] = {0x02, 0x00, 0x6a, stateValue & B11111};
 		_sendCommandPacket("CTTp", commandBytes, 4);	// Reflected back from ATEM in "TrSS"
 	}
@@ -952,7 +953,7 @@ void ATEM::changeAuxState(uint8_t auxOutput, uint16_t inputNumber)  {
 	  		uint8_t commandBytes[4] = {auxOutput-1, inputNumber, 0, 0};
 	  		_sendCommandPacket("CAuS", commandBytes, 4);
 		} else {
-	  		uint8_t commandBytes[8] = {auxOutput, 0, inputNumber >> 8, inputNumber & 0xFF, 0,0,0,0};
+	  		uint8_t commandBytes[8] = {0x01, auxOutput-1, inputNumber >> 8, inputNumber & 0xFF, 0,0,0,0};
 	  		_sendCommandPacket("CAuS", commandBytes, 8);
 		}
 		//Serial.print("freeMemory()=");

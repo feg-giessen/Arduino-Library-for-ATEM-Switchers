@@ -952,7 +952,7 @@ void ATEM::changeAuxState(uint8_t auxOutput, uint16_t inputNumber)  {
 	  		uint8_t commandBytes[4] = {auxOutput-1, inputNumber, 0, 0};
 	  		_sendCommandPacket("CAuS", commandBytes, 4);
 		} else {
-	  		uint8_t commandBytes[8] = {auxOutput-1, 0, inputNumber >> 8, inputNumber & 0xFF, 0,0,0,0};
+	  		uint8_t commandBytes[8] = {auxOutput, 0, inputNumber >> 8, inputNumber & 0xFF, 0,0,0,0};
 	  		_sendCommandPacket("CAuS", commandBytes, 8);
 		}
 		//Serial.print("freeMemory()=");

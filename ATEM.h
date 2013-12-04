@@ -35,7 +35,10 @@ with the ATEM library. If not, see http://www.gnu.org/licenses/.
 
 
 #include <EthernetUdp.h>
-#include <avr/pgmspace.h>
+
+#ifndef __arm__
+	#include <avr/pgmspace.h>
+#endif
 
 class ATEM
 {
@@ -100,6 +103,7 @@ class ATEM
   private:
 	void _parsePacket(uint16_t packetLength);
 	bool _readToPacketBuffer();
+	bool _readToPacketBuffer(uint8_t maxBytes);
 	void _sendAnswerPacket(uint16_t remotePacketID);
 	void _sendCommandPacket(const char cmd[4], uint8_t commandBytes[16], uint8_t cmdBytes);
 	void _wipeCleanPacketBuffer();
@@ -174,23 +178,25 @@ class ATEM
 	void changeDVEMaskTemp(unsigned long top,unsigned long bottom,unsigned long left,unsigned long right);
 	void changeDVEBorder(bool enableBorder);
 		
-	void changeUpstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber);
+	void changeUpstreamKeyFillSource(uint8_t keyer, uint16_t inputNumber);
 	void changeUpstreamKeyBlending(uint8_t keyer, bool preMultipliedAlpha, uint16_t clip, uint16_t gain, bool invKey);	
 	void changeDownstreamKeyBlending(uint8_t keyer, bool preMultipliedAlpha, uint16_t clip, uint16_t gain, bool invKey);
-	void changeDownstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber);
-	void changeDownstreamKeyKeySource(uint8_t keyer, uint8_t inputNumber);
+	void changeDownstreamKeyFillSource(uint8_t keyer, uint16_t inputNumber);
+	void changeDownstreamKeyKeySource(uint8_t keyer, uint16_t inputNumber);
 	void changeDVESettingsTemp_RunKeyFrame(uint8_t runType);
 	void changeDVESettingsTemp_Rate(uint8_t rateFrames);
 	void changeKeyerMask(uint16_t topMask, uint16_t bottomMask, uint16_t leftMask, uint16_t rightMask);
 	void changeDownstreamKeyMask(uint8_t keyer, uint16_t topMask, uint16_t bottomMask, uint16_t leftMask, uint16_t rightMask);
 	
-	void changeAudioChannelMode(uint8_t channelNumber, uint8_t mode);
-	void changeAudioChannelVolume(uint8_t channelNumber, uint16_t volume);
+	void changeAudioChannelMode(uint16_t channelNumber, uint8_t mode);
+	void changeAudioChannelVolume(uint16_t channelNumber, uint16_t volume);
 	void changeAudioMasterVolume(uint16_t volume);
 	void sendAudioLevelNumbers(bool enable);
 	void setAudioLevelReadoutChannel(uint8_t AMLv);
 	
 	bool ver42();
+	
+	void setWipeReverseDirection(bool reverse);
 };
 
 #endif

@@ -246,7 +246,10 @@ void ATEM::delay(const unsigned int delayTimeMillis)	{	// Responsible delay func
  * Returns false if there are no more bytes, otherwise true 
  */
 bool ATEM::_readToPacketBuffer() {
-	uint8_t maxBytes = 96;
+	return _readToPacketBuffer(96);
+}
+bool ATEM::_readToPacketBuffer(uint8_t maxBytes) {
+	maxBytes = maxBytes<=96 ? maxBytes : 96;
 	int remainingBytes = _cmdLength-8-_cmdPointer;
 
 	if (remainingBytes>0)	{
@@ -287,7 +290,9 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 
 			// If length of segment larger than 8 (should always be...!)
         if (_cmdLength>8)  {
-		  _readToPacketBuffer();
+			if(strcmp(cmdStr, "AMLv"))	{
+			  _readToPacketBuffer();	// Fill packet buffer unless it's AMLv (AudioMonitorLevels)
+			}
 
           // Extract the specific state information we like to know about:
           if(strcmp(cmdStr, "PrgI") == 0) {  // Program Bus status
@@ -434,19 +439,19 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 		    } else 
 			// Note for future reveng: For master control, volume at least comes back in "AMMO" (CAMM is the command code.)
 			if(strcmp(cmdStr, "AMIP") == 0) {  // Audio Monitor Input P... (state) (On, Off, AFV)
-				if (_packetBuffer[0]<13)	{
-					_ATEM_AudioChannelMode[_packetBuffer[0]]  = _packetBuffer[6];	
-					// 0 = Channel
+				if (_packetBuffer[1]<13)	{
+					_ATEM_AudioChannelMode[_packetBuffer[1]]  = _packetBuffer[8];	
+					// 0+1 = Channel (high+low byte)
 					// 6 = On/Off/AFV
 					// 10+11 = Balance (0xD8F0 - 0x0000 - 0x2710)
 					// 8+9 = Volume (0x0020 - 0xFF65)
 				}
-	/*			for(uint8_t a=0;a<_cmdLength-8;a++)	{
+/*				for(uint8_t a=0;a<_cmdLength-8;a++)	{
 	            	Serial.print((uint8_t)_packetBuffer[a], HEX);
 	            	Serial.print(" ");
 				}
 				Serial.println("");				
-	*/			
+*/				
 /*				1M/E:
 					0: MASTER
 					1: (Monitor?)
@@ -471,20 +476,37 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 				Serial.println((uint16_t)_packetBuffer[6]*256+_packetBuffer[7]);
 		   */ } else 
 			if(strcmp(cmdStr, "AMLv") == 0) {  // Audio Monitor Levels
-				uint16_t readingOffset = 4+(_ATEM_AMLv_channel << 4);	// *16
-				while (readingOffset+4 > 96)	{
-					readingOffset-=96;
-					_readToPacketBuffer();
-				}
-				_ATEM_AMLv[0] = ((uint16_t)(_packetBuffer[readingOffset+1]<<8) | _packetBuffer[readingOffset+2]);	//drops the 8 least sign. bits! -> 15 bit resolution for VU purposes. fine enough.
+				// Get number of channels:
+			  	_readToPacketBuffer(4);	// AMLv (AudioMonitorLevels)
 
-				readingOffset+=4;
-
-				while (readingOffset+4 > 96)	{
-					readingOffset-=96;
-					_readToPacketBuffer();
+				uint8_t numberOfChannels = _packetBuffer[1];
+				uint8_t readingOffset=0;
+				
+			  	_readToPacketBuffer(32);	// AMLv (AudioMonitorLevels)
+				if (_ATEM_AMLv_channel<=1)	{	// Master or Monitor vol
+					readingOffset= _ATEM_AMLv_channel<<4;
+					_ATEM_AMLv[0] = ((uint16_t)(_packetBuffer[readingOffset+1]<<8) | _packetBuffer[readingOffset+2]);	//drops the 8 least sign. bits! -> 15 bit resolution for VU purposes. fine enough.
+					readingOffset+=4;
+					_ATEM_AMLv[1] = ((uint16_t)(_packetBuffer[readingOffset+1]<<8) | _packetBuffer[readingOffset+2]);	//drops the 8 least sign. bits! -> 15 bit resolution for VU purposes. fine enough.
+				} else {
+						// Match indexes to input src numbers:
+				  	_readToPacketBuffer(numberOfChannels & 1 ? (numberOfChannels+1)<<1 : numberOfChannels<<1);	// The block of input source numbers is always divisible by 4 bytes, so we must read a multiplum of 4 at all times
+					for(uint8_t j=0; j<numberOfChannels; j++)	{
+//						uint16_t inputNum = ((uint16_t)(_packetBuffer[j<<1]<<8) | _packetBuffer[(j<<1)+1]);
+//						Serial.println(inputNum);
+					}
+						// Get level data for each input:
+					for(uint8_t j=0; j<numberOfChannels; j++)	{
+						_readToPacketBuffer(16);
+						if (_ATEM_AMLv_channel == j+3)	{
+							readingOffset = 0;
+							_ATEM_AMLv[0] = ((uint16_t)(_packetBuffer[readingOffset+1]<<8) | _packetBuffer[readingOffset+2]);	//drops the 8 least sign. bits! -> 15 bit resolution for VU purposes. fine enough.
+							readingOffset+=4;
+							_ATEM_AMLv[1] = ((uint16_t)(_packetBuffer[readingOffset+1]<<8) | _packetBuffer[readingOffset+2]);	//drops the 8 least sign. bits! -> 15 bit resolution for VU purposes. fine enough.
+						}
+					}
+					
 				}
-				_ATEM_AMLv[1] = ((uint16_t)(_packetBuffer[readingOffset+1]<<8) | _packetBuffer[readingOffset+2]);	//drops the 8 least sign. bits! -> 15 bit resolution for VU purposes. fine enough.
 			} else 
 			if(strcmp(cmdStr, "VidM") == 0) {  // Video format (SD, HD, framerate etc.)
 				_ATEM_VidM = _packetBuffer[0];	
@@ -500,6 +522,7 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 					Serial.print(" : ");
 				}
 				for(uint8_t a=(-2+8);a<_cmdLength-2;a++)	{
+	            	if (_serialOutput && (uint8_t)_packetBuffer[a]<16) Serial.print(0);
 	            	if (_serialOutput) Serial.print((uint8_t)_packetBuffer[a], HEX);
 	            	if (_serialOutput) Serial.print(" ");
 				}
@@ -1063,12 +1086,17 @@ void ATEM::changeDownstreamKeyMask(uint8_t keyer, uint16_t topMask, uint16_t bot
 
 
 
-void ATEM::changeUpstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber)	{
+void ATEM::changeUpstreamKeyFillSource(uint8_t keyer, uint16_t inputNumber)	{
 	if (keyer>=1 && keyer<=4)	{	// Todo: Should match available keyers depending on model?
 	  	// TODO: Validate that input number exists on current model!
 		// 0-15 on 1M/E
-		uint8_t commandBytes[4] = {0, keyer-1, inputNumber, 0};
-		_sendCommandPacket("CKeF", commandBytes, 4);
+		if (!ver42())	{
+			uint8_t commandBytes[4] = {0, keyer-1, inputNumber, 0};
+			_sendCommandPacket("CKeF", commandBytes, 4);
+		} else {
+			uint8_t commandBytes[4] = {0, keyer-1, highByte(inputNumber), lowByte(inputNumber)};
+			_sendCommandPacket("CKeF", commandBytes, 4);
+		}
 	}
 }
 
@@ -1090,35 +1118,53 @@ void ATEM::changeDownstreamKeyBlending(uint8_t keyer, bool preMultipliedAlpha, u
 
 // Statuskode retur: DskB, data byte 2 derefter er fill source, data byte 3 er key source, data byte 1 er keyer 1-2 (0-1)
 // Key source command er : CDsC - og ellers ens med...
-void ATEM::changeDownstreamKeyFillSource(uint8_t keyer, uint8_t inputNumber)	{
+void ATEM::changeDownstreamKeyFillSource(uint8_t keyer, uint16_t inputNumber)	{
 	if (keyer>=1 && keyer<=2)	{	// Todo: Should match available keyers depending on model?
 	  	// TODO: Validate that input number exists on current model!
 		// 0-15 on 1M/E
-		uint8_t commandBytes[4] = {keyer-1, inputNumber, 0, 0};
-		_sendCommandPacket("CDsF", commandBytes, 4);
+		if (!ver42())	{
+			uint8_t commandBytes[4] = {keyer-1, inputNumber, 0, 0};
+			_sendCommandPacket("CDsF", commandBytes, 4);
+		} else {
+			uint8_t commandBytes[4] = {keyer-1, 0, highByte(inputNumber), lowByte(inputNumber)};
+			_sendCommandPacket("CDsF", commandBytes, 4);
+		}
 	}
 }
 
-void ATEM::changeDownstreamKeyKeySource(uint8_t keyer, uint8_t inputNumber)	{
+void ATEM::changeDownstreamKeyKeySource(uint8_t keyer, uint16_t inputNumber)	{
 	if (keyer>=1 && keyer<=2)	{	// Todo: Should match available keyers depending on model?
 	  	// TODO: Validate that input number exists on current model!
 		// 0-15 on 1M/E
-		uint8_t commandBytes[4] = {keyer-1, inputNumber, 0, 0};
-		_sendCommandPacket("CDsC", commandBytes, 4);
+		if (!ver42())	{
+			uint8_t commandBytes[4] = {keyer-1, inputNumber, 0, 0};
+			_sendCommandPacket("CDsC", commandBytes, 4);
+		} else {
+			uint8_t commandBytes[4] = {keyer-1, 0, highByte(inputNumber), lowByte(inputNumber)};
+			_sendCommandPacket("CDsC", commandBytes, 4);
+		}
 	}
 }
 
-void ATEM::changeAudioChannelMode(uint8_t channelNumber, uint8_t mode)	{	// Mode: 0=Off, 1=On, 2=AFV
+void ATEM::changeAudioChannelMode(uint16_t channelNumber, uint8_t mode)	{	// Mode: 0=Off, 1=On, 2=AFV
   if (mode<=2)	{
 	  _wipeCleanPacketBuffer();
-	  _packetBuffer[0] = 0x01;	// Setting ON/OFF/AFV
-	  _packetBuffer[1] = channelNumber;	// Input 1-8 = channel 0-7(!), Media Player 1+2 = channel 8-9, Ext = channel 10 (For 1M/E!)
-	  _packetBuffer[2] = mode;	// 0=Off, 1=On, 2=AFV
-	  _packetBuffer[3] = 0x03;	
-	  _sendPacketBufferCmdData("CAMI", 8);	// Reflected back from ATEM as "AMIP"
+		if (!ver42())	{
+		  _packetBuffer[0] = 0x01;	// Setting ON/OFF/AFV
+		  _packetBuffer[1] = channelNumber;	// Input 1-8 = channel 0-7(!), Media Player 1+2 = channel 8-9, Ext = channel 10 (For 1M/E!)
+		  _packetBuffer[2] = mode;	// 0=Off, 1=On, 2=AFV
+		  _packetBuffer[3] = 0x03;	
+		  _sendPacketBufferCmdData("CAMI", 12);	// Reflected back from ATEM as "AMIP"
+		} else {
+		  _packetBuffer[0] = 0x01;	// Setting ON/OFF/AFV
+		  _packetBuffer[2] = highByte(channelNumber);
+		  _packetBuffer[3] = lowByte(channelNumber);
+		  _packetBuffer[4] = mode;	// 0=Off, 1=On, 2=AFV
+		  _sendPacketBufferCmdData("CAMI", 12);	// Reflected back from ATEM as "AMIP"
+		}
   }
 }
-void ATEM::changeAudioChannelVolume(uint8_t channelNumber, uint16_t volume)	{
+void ATEM::changeAudioChannelVolume(uint16_t channelNumber, uint16_t volume)	{
 
 	/*
 	Based on data from the ATEM switcher, this is an approximation to the integer value vs. the dB value:
@@ -1149,26 +1195,32 @@ void ATEM::changeAudioChannelVolume(uint8_t channelNumber, uint16_t volume)	{
 // CAMM: 01:de:80:00:e4:10:ff:bf (master) [volume is 80:00]
 
   _wipeCleanPacketBuffer();
-  _packetBuffer[0] = 0x02;	// Setting Volume Level
-  _packetBuffer[1] = channelNumber;	// Input 1-8 = channel 0-7(!), Media Player 1+2 = channel 8-9, Ext = channel 10 (For 1M/E!)		///		Input 1-6 = channel 0-5(!), Ext = channel 6 (For TVS!)
-//  _packetBuffer[2] = 0xff;	// ??
-//  _packetBuffer[3] = 0xbf;	// ??
 
-	if (volume > 0xff65)	{
-		volume = 0xff65;
+	if (!ver42())	{
+	  _packetBuffer[0] = 0x02;	// Setting Volume Level
+	  _packetBuffer[1] = channelNumber;	// Input 1-8 = channel 0-7(!), Media Player 1+2 = channel 8-9, Ext = channel 10 (For 1M/E!)		///		Input 1-6 = channel 0-5(!), Ext = channel 6 (For TVS!)
+		if (volume > 0xff65)	{
+			volume = 0xff65;
+		}
+	  _packetBuffer[4] = volume/256;	
+	  _packetBuffer[5] = volume%256;	
+
+	  _sendPacketBufferCmdData("CAMI", 8);
+	} else {
+	  _packetBuffer[0] = 0x02;	// Setting Volume Level
+
+	  _packetBuffer[2] = highByte(channelNumber);
+	  _packetBuffer[3] = lowByte(channelNumber);
+
+		if (volume > 0xff65)	{
+			volume = 0xff65;
+		}
+	  _packetBuffer[6] = highByte(volume);	
+	  _packetBuffer[7] = lowByte(volume);	
+
+	  _sendPacketBufferCmdData("CAMI", 12);
+		
 	}
-
-  _packetBuffer[4] = volume/256;	
-  _packetBuffer[5] = volume%256;	
-//  _packetBuffer[6] = volume/256;	
-//  _packetBuffer[7] = volume%256;	
-
-//  _packetBuffer[8] = 0x57;	// ??
-//  _packetBuffer[9] = 0x84;	// ??
-//  _packetBuffer[10] = 0xb3;	// ??
-//  _packetBuffer[11] = 0xac;	// ??
-
-  _sendPacketBufferCmdData("CAMI", 8);
 }
 
 void ATEM::changeAudioMasterVolume(uint16_t volume)	{
@@ -1177,6 +1229,7 @@ void ATEM::changeAudioMasterVolume(uint16_t volume)	{
 // CAMM: 01:de:80:00:e4:10:ff:bf (master) [volume is 80:00]
 
   _wipeCleanPacketBuffer();
+
   _packetBuffer[0] = 0x01;
 
 	if (volume > 0xff65)	{
@@ -1237,3 +1290,18 @@ bool ATEM::ver42()	{
 	
 	return (_ATEM_ver_m>2) || (_ATEM_ver_m>=2 && _ATEM_ver_l>=12);
 }
+
+
+
+
+
+void ATEM::setWipeReverseDirection(bool reverse) {
+
+  _wipeCleanPacketBuffer();
+
+  _packetBuffer[0] = 0x01;	
+  _packetBuffer[18] = reverse;	
+
+  _sendPacketBufferCmdData("CTWp", 20);
+}
+

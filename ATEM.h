@@ -99,6 +99,7 @@ class ATEM
     void runLoop();
 	bool isConnectionTimedOut();
 	void delay(const unsigned int delayTimeMillis);
+	uint16_t getSessionID();
 
   private:
 	void _parsePacket(uint16_t packetLength);

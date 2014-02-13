@@ -55,6 +55,14 @@ void ATEM::begin(const IPAddress ip, const uint16_t localPort){
 	_ATEM_AMLv_channel=0;
 }
 
+
+/**
+ * Get ATEM session ID
+ */
+uint16_t ATEM::getSessionID() {
+	return _sessionID;
+}
+
 /**
  * Initiating connection handshake to the ATEM switcher
  */
@@ -183,6 +191,8 @@ void ATEM::runLoop() {
 		      if(!_hasInitialized && packetSize == 12) {
 		        _hasInitialized = true;
 				if (_serialOutput) Serial.println(F("_hasInitialized=TRUE"));
+				Serial.print("Session ID: ");
+				Serial.println(_sessionID, DEC);
 		      } 
 	
 				if (packetLength > 12 && !command_INIT)	{	// !command_INIT is because there seems to be no commands in these packets and that will generate an error.

@@ -55,6 +55,14 @@ void ATEM::begin(const IPAddress ip, const uint16_t localPort){
 	_ATEM_AMLv_channel=0;
 }
 
+
+/**
+ * Get ATEM session ID
+ */
+uint16_t ATEM::getSessionID() {
+	return _sessionID;
+}
+
 /**
  * Initiating connection handshake to the ATEM switcher
  */
@@ -120,7 +128,8 @@ void ATEM::runLoop() {
 				// And it seems that THIS third packet is the one we actually read and respond to. In other words, I believe that 
 				// the ethernet interface on Arduino actually misses the first two for some reason!
 			_Udp.read(_packetBuffer,20);
-			_sessionID = _packetBuffer[15];
+			
+			//_sessionID = _packetBuffer[15];
 
 			// Send connectAnswerString to ATEM:
 			_Udp.beginPacket(_switcherIP,  9910);
@@ -157,6 +166,8 @@ void ATEM::runLoop() {
 		    // Read packet header of 12 bytes:
 		    _Udp.read(_packetBuffer, 12);
 
+		    _sessionID = word(_packetBuffer[2], _packetBuffer[3]);
+
 		    // Read out packet length (first word), remote packet ID number and "command":
 		    uint16_t packetLength = word(_packetBuffer[0] & B00000111, _packetBuffer[1]);
 		    _lastRemotePacketID = word(_packetBuffer[10],_packetBuffer[11]);
@@ -180,6 +191,8 @@ void ATEM::runLoop() {
 		      if(!_hasInitialized && packetSize == 12) {
 		        _hasInitialized = true;
 				if (_serialOutput) Serial.println(F("_hasInitialized=TRUE"));
+				Serial.print("Session ID: ");
+				Serial.println(_sessionID, DEC);
 		      } 
 	
 				if (packetLength > 12 && !command_INIT)	{	// !command_INIT is because there seems to be no commands in these packets and that will generate an error.
@@ -559,8 +572,8 @@ void ATEM::_sendAnswerPacket(uint16_t remotePacketID)  {
 
   //Answer packet:
   memset(_packetBuffer, 0, 12);			// Using 12 bytes of answer buffer, setting to zeros.
-  _packetBuffer[2] = 0x80;  // ??? API
-  _packetBuffer[3] = _sessionID;  // Session ID
+  _packetBuffer[2] = _sessionID >> 8;  // Session ID
+  _packetBuffer[3] = _sessionID & 0xFF;  // Session ID
   _packetBuffer[4] = remotePacketID/256;  // Remote Packet ID, MSB
   _packetBuffer[5] = remotePacketID%256;  // Remote Packet ID, LSB
   _packetBuffer[9] = 0x41;  // ??? API
@@ -586,8 +599,8 @@ void ATEM::_sendCommandPacket(const char cmd[4], uint8_t commandBytes[64], uint8
   if (cmdBytes <= 64)	{	// Currently, only a lenght up to 16 - can be extended, but then the _packetBuffer buffer must be prolonged as well (to more than 36)	<- TEMP 16->64
 	  //Answer packet preparations:
 	  memset(_packetBuffer, 0, 84);	// <- TEMP 36->84
-	  _packetBuffer[2] = 0x80;  // ??? API
-	  _packetBuffer[3] = _sessionID;  // Session ID
+	  _packetBuffer[2] = _sessionID >> 8;  // Session ID
+	  _packetBuffer[3] = _sessionID & 0xFF;  // Session ID
 	  _packetBuffer[10] = _localPacketIdCounter/256;  // Remote Packet ID, MSB
 	  _packetBuffer[11] = _localPacketIdCounter%256;  // Remote Packet ID, LSB
 
@@ -639,8 +652,8 @@ void ATEM::_sendPacketBufferCmdData(const char cmd[4], uint8_t cmdBytes)  {
 	  //Answer packet preparations:
 	  uint8_t _headerBuffer[20];
 	  memset(_headerBuffer, 0, 20);
-	  _headerBuffer[2] = 0x80;  // ??? API
-	  _headerBuffer[3] = _sessionID;  // Session ID
+	  _headerBuffer[2] = _sessionID >> 8;  // Session ID
+	  _headerBuffer[3] = _sessionID & 0xFF;  // Session ID
 	  _headerBuffer[10] = _localPacketIdCounter/256;  // Remote Packet ID, MSB
 	  _headerBuffer[11] = _localPacketIdCounter%256;  // Remote Packet ID, LSB
 

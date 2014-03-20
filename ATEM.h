@@ -154,6 +154,7 @@ class ATEM
 	void changePreviewInput(uint16_t inputNumber);
 	void doCut();
 	void doAuto();
+	void doAuto(uint8_t me);
 	void fadeToBlackActivate();
 	void changeTransitionPosition(word value);
 	void changeTransitionPositionDone();

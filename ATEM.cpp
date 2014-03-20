@@ -48,7 +48,7 @@ void ATEM::begin(const IPAddress ip, const uint16_t localPort){
 	
 	_switcherIP = ip;	// Set switcher IP address
 	_localPort = localPort;	// Set local port (just a random number I picked)
-	
+
 	_serialOutput = false;
 	_isConnectingTime = 0;
 	
@@ -494,6 +494,12 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 					for(uint8_t j=0; j<numberOfChannels; j++)	{
 //						uint16_t inputNum = ((uint16_t)(_packetBuffer[j<<1]<<8) | _packetBuffer[(j<<1)+1]);
 //						Serial.println(inputNum);
+						/*
+							0x07D1 = 2001 = MP1
+							0x07D2 = 2002 = MP2
+							0x03E9 = 1001 = EXT
+							0x04b1 = 1201 = RCA
+							*/
 					}
 						// Get level data for each input:
 					for(uint8_t j=0; j<numberOfChannels; j++)	{
@@ -716,6 +722,10 @@ uint8_t ATEM::getATEMmodel()	{
 		if (_serialOutput) Serial.println(F("ATEM 2 M/E Detected"));
 		return 2;
 	}
+	if (_ATEM_pin[5]=='P')	{
+		if (_serialOutput) Serial.println(F("ATEM Production Studio 4K"));
+		return 3;
+	}
 	return 255;
 }
 
@@ -880,10 +890,11 @@ void ATEM::doCut()	{
   _sendPacketBufferCmdData("DCut", 4);
 }
 void ATEM::doAuto()	{
+	doAuto(0);
+}
+void ATEM::doAuto(uint8_t me)	{
   _wipeCleanPacketBuffer();
-  _packetBuffer[1] = 0x32;
-  _packetBuffer[2] = 0x16;
-  _packetBuffer[3] = 0x02;
+  _packetBuffer[0] = me;
   _sendPacketBufferCmdData("DAut", 4);
 }
 void ATEM::fadeToBlackActivate()	{

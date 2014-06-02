@@ -370,6 +370,9 @@ void ATEM::_parsePacket(uint16_t packetLength)	{
 	      if(strcmp(cmdStr, "FtbS") == 0) {  // Fade To Black State
 			_ATEM_FtbS_state = _packetBuffer[2]; // State of Fade To Black, 0 = off and 1 = activated
 			_ATEM_FtbS_frameCount = _packetBuffer[3];	// Frames count down
+			if (_ATEM_FtbS_state == 0) {
+				_ATEM_FtbS_active = _packetBuffer[1];
+			}
             if (_serialOutput) Serial.print(F("FTB:"));
             if (_serialOutput) Serial.print(_ATEM_FtbS_state);
             if (_serialOutput) Serial.print(F("/"));
@@ -803,7 +806,10 @@ uint8_t ATEM::getTransitionMixTime() {
 	return _ATEM_TMxP_time;		// Transition time for Mix Transitions
 }
 boolean ATEM::getFadeToBlackState() {
-	return _ATEM_FtbS_state;    // Active state of Fade-to-black
+	return _ATEM_FtbS_state;    // Is Fade-to-black in progress (currently "fading")
+}
+boolean ATEM::getFadeToBlackActive() {
+	return _ATEM_FtbS_active;    // Is Fade-to-black active (static state)?
 }
 uint8_t ATEM::getFadeToBlackFrameCount() {
 	return _ATEM_FtbS_frameCount;    // Returns current frame in the FTB
